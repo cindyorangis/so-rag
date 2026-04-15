@@ -17,7 +17,7 @@ A self-hosted RAG (Retrieval-Augmented Generation) tool that lets you ask plain 
 | PDF Parsing | `pdfplumber` (Python) |
 | Embeddings | `sentence-transformers` — `all-MiniLM-L6-v2` (local, free) |
 | Vector Database | Supabase pgvector |
-| LLM | Groq API — Llama 3.1 70B (free tier) |
+| LLM | Groq API — Llama 3.3 70B (free tier) |
 | Backend | FastAPI (Python) |
 | Frontend | Next.js + Tailwind CSS |
 
