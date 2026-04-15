@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_PUBLISHABLE_KEY"))
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 CHUNK_SIZE = 500      # characters
