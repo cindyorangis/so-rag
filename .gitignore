@@ -44,5 +44,5 @@ web/next-env.d.ts
 
 api/.env*
 
-ingest/pdf/*
+ingest/pdfs/*
 ingest/.env*
