@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { SourceCard } from "@/components/SourceCard";
 
-type Source = { source: string; page_number: number, content: string };
+type Source = { source: string; page_number: number; content: string };
 
 type Message = {
   role: "user" | "assistant";
@@ -44,7 +44,10 @@ export default function ManualsPage() {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Something went wrong. Is the API running?" },
+        {
+          role: "assistant",
+          content: "Something went wrong. Is the API running?",
+        },
       ]);
     } finally {
       setLoading(false);
@@ -58,10 +61,15 @@ export default function ManualsPage() {
       {/* Message thread */}
       <div className="flex-1 overflow-y-auto space-y-4 mb-4">
         {messages.length === 0 && (
-          <p className="text-gray-400 text-sm">Ask anything from the ServiceOntario manuals.</p>
+          <p className="text-gray-400 text-sm">
+            Ask anything from the ServiceOntario manuals.
+          </p>
         )}
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div
+            key={i}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
             <div
               className={`rounded-xl px-4 py-2 max-w-xl text-sm whitespace-pre-wrap ${
                 msg.role === "user"
@@ -70,16 +78,16 @@ export default function ManualsPage() {
               }`}
             >
               {msg.content}
-{msg.sources && msg.sources.length > 0 && (
-  <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
-    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-      Sources
-    </p>
-    {msg.sources.map((s, j) => (
-      <SourceCard key={j} source={s} />
-    ))}
-  </div>
-)}
+              {msg.sources && msg.sources.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                    Sources
+                  </p>
+                  {msg.sources.map((s, j) => (
+                    <SourceCard key={j} source={s} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}

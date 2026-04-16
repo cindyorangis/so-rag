@@ -1,9 +1,13 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState } from "react";
 
-export function SourceCard({ source }: { source: { source: string; page_number: number; content: string } }) {
-  const [expanded, setExpanded] = useState(false)
+export function SourceCard({
+  source,
+}: {
+  source: { source: string; page_number: number; content: string };
+}) {
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="border border-gray-100 rounded-lg overflow-hidden text-xs">
@@ -27,5 +31,5 @@ export function SourceCard({ source }: { source: { source: string; page_number: 
         </div>
       )}
     </div>
-  )
+  );
 }
