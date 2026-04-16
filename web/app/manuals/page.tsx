@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { SourceCard } from "@/components/SourceCard";
 
-type Source = { source: string; page_number: number };
+type Source = { source: string; page_number: number, content: string };
 
 type Message = {
   role: "user" | "assistant";
@@ -69,13 +70,16 @@ export default function ManualsPage() {
               }`}
             >
               {msg.content}
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-300 text-xs text-gray-500 space-y-1">
-                  {msg.sources.map((s, j) => (
-                    <div key={j}>📄 {s.source} — p.{s.page_number}</div>
-                  ))}
-                </div>
-              )}
+{msg.sources && msg.sources.length > 0 && (
+  <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+      Sources
+    </p>
+    {msg.sources.map((s, j) => (
+      <SourceCard key={j} source={s} />
+    ))}
+  </div>
+)}
             </div>
           </div>
         ))}

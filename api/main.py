@@ -31,6 +31,7 @@ class AskRequest(BaseModel):
 class Source(BaseModel):
     source: str
     page_number: int
+    content: str
 
 
 class AskResponse(BaseModel):
@@ -90,7 +91,7 @@ ANSWER:"""
         key = (c["source"], c["page_number"])
         if key not in seen:
             seen.add(key)
-            sources.append(Source(source=c["source"], page_number=c["page_number"]))
+            sources.append(Source(source=c["source"], page_number=c["page_number"], content=c["content"]))
 
     return AskResponse(answer=answer, sources=sources)
 
