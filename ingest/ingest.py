@@ -26,13 +26,23 @@ def get_already_ingested():
     return set(item['source'] for item in res.data)
 
 def table_to_markdown(table):
-    """Converts a list-of-lists table into a Markdown string."""
     if not table: return ""
-    # Filter out None values and join with pipes
-    rows = [" | ".join([str(cell) if cell else "" for cell in row]) for row in table]
+    
+    cleaned = []
+    for row in table:
+        cleaned_row = []
+        for cell in row:
+            if cell:
+                # Collapse mid-cell line breaks into a single space
+                cell = cell.replace("\n", " ").strip()
+                # Collapse multiple spaces
+                cell = " ".join(cell.split())
+            cleaned_row.append(cell or "")
+        cleaned.append(cleaned_row)
+    
+    rows = [" | ".join(cleaned_row) for cleaned_row in cleaned]
     if len(rows) > 1:
-        # Add the header separator line
-        header_sep = "|".join(["---"] * len(table[0]))
+        header_sep = "|".join(["---"] * len(cleaned[0]))
         rows.insert(1, header_sep)
     return "\n".join(rows)
 
