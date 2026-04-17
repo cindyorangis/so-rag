@@ -139,12 +139,12 @@ GROQ_API_KEY=your_groq_api_key
 
 Start the server:
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8080
 ```
 
 Test it:
 ```bash
-curl -X POST http://localhost:8000/ask \
+curl -X POST http://localhost:8080/ask \
   -H "Content-Type: application/json" \
   -d '{"question": "What documents are required for a vehicle permit?"}'
 ```
@@ -160,7 +160,7 @@ npm install
 
 Create `web/.env.local`:
 ```
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 Update the fetch URL in `web/app/manuals/page.tsx` to use the env variable:
@@ -215,7 +215,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `api/.env` | `SUPABASE_URL` | Same as above |
 | `api/.env` | `SUPABASE_KEY` | Same as above |
 | `api/.env` | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
-| `web/.env.local` | `NEXT_PUBLIC_API_URL` | Your Railway deployment URL (or `http://localhost:8000` locally) |
+| `web/.env.local` | `NEXT_PUBLIC_API_URL` | Your Railway deployment URL (or `http://localhost:8080` locally) |
 
 ---
 
