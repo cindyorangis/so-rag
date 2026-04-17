@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { SourceCard } from "@/components/SourceCard";
 
 type Source = { source: string; page_number: number; content: string };
@@ -50,12 +52,13 @@ export default function ManualsPage() {
         ...prev,
         { role: "assistant", content: data.answer, sources: data.sources },
       ]);
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Something went wrong. Is the API running?",
+          content:
+            "**Error:** I couldn't connect to the manual database. Please ensure the backend is running.",
         },
       ]);
     } finally {
@@ -69,39 +72,30 @@ export default function ManualsPage() {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100dvh", // dvh handles mobile browser chrome correctly
+        height: "100dvh",
         background: "#0f1117",
         color: "#fff",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       {/* Header */}
-      <div
+      <header
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "10px",
-          padding: "14px 16px",
+          gap: "12px",
+          padding: "14px 20px",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
-          flexShrink: 0,
           background: "#0f1117",
+          zIndex: 10,
         }}
       >
         <div
-          style={{
-            width: "28px",
-            height: "28px",
-            background: "#1a56db",
-            borderRadius: "8px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
+          style={{ background: "#1a56db", padding: "6px", borderRadius: "8px" }}
         >
           <svg
-            width="14"
-            height="14"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
             stroke="#fff"
@@ -109,60 +103,35 @@ export default function ManualsPage() {
           >
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
             <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
           </svg>
         </div>
         <div>
-          <p style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: "15px", fontWeight: 600, margin: 0 }}>
             ServiceOntario
-          </p>
+          </h1>
           <p
             style={{
               fontSize: "11px",
               color: "rgba(255,255,255,0.4)",
-              lineHeight: 1.2,
+              margin: 0,
             }}
           >
-            Manual Search
+            Policy Intelligence Unit
           </p>
         </div>
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: "5px",
-          }}
-        >
-          <div
-            style={{
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              background: "#22c55e",
-            }}
-          />
-          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
-            Live
-          </span>
-        </div>
-      </div>
+      </header>
 
       {/* Messages */}
       <div
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "16px",
+          padding: "20px",
           display: "flex",
           flexDirection: "column",
-          gap: "12px",
-          WebkitOverflowScrolling: "touch", // smooth scroll on iOS
+          gap: "24px",
         }}
       >
-        {/* Empty state */}
         {messages.length === 0 && (
           <div
             style={{
@@ -171,40 +140,25 @@ export default function ManualsPage() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: "20px",
-              padding: "32px 0",
               textAlign: "center",
+              gap: "24px",
             }}
           >
             <div>
-              <p
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  marginBottom: "6px",
-                }}
-              >
-                Ask the manuals anything
-              </p>
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "rgba(255,255,255,0.4)",
-                  lineHeight: 1.6,
-                  maxWidth: "280px",
-                }}
-              >
-                Answers sourced directly from ServiceOntario documents. No
-                internet, no guessing.
+              <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>
+                How can I help you today?
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px" }}>
+                Search verified ServiceOntario manuals instantly.
               </p>
             </div>
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "8px",
+                gap: "10px",
                 width: "100%",
-                maxWidth: "340px",
+                maxWidth: "400px",
               }}
             >
               {SUGGESTIONS.map((s) => (
@@ -212,15 +166,14 @@ export default function ManualsPage() {
                   key={s}
                   onClick={() => handleAsk(s)}
                   style={{
-                    padding: "10px 14px",
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "10px",
-                    color: "rgba(255,255,255,0.65)",
-                    fontSize: "13px",
-                    cursor: "pointer",
+                    padding: "12px 16px",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "12px",
+                    color: "rgba(255,255,255,0.8)",
                     textAlign: "left",
-                    lineHeight: 1.4,
+                    cursor: "pointer",
+                    fontSize: "13px",
                   }}
                 >
                   {s}
@@ -230,7 +183,6 @@ export default function ManualsPage() {
           </div>
         )}
 
-        {/* Message bubbles */}
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -241,48 +193,45 @@ export default function ManualsPage() {
           >
             <div
               style={{
-                maxWidth: "88%",
-                padding: "10px 14px",
+                maxWidth: "90%",
+                padding: "12px 16px",
                 borderRadius:
                   msg.role === "user"
                     ? "18px 18px 4px 18px"
                     : "18px 18px 18px 4px",
                 background:
-                  msg.role === "user" ? "#1a56db" : "rgba(255,255,255,0.07)",
-                border:
-                  msg.role === "assistant"
-                    ? "1px solid rgba(255,255,255,0.08)"
-                    : "none",
-                fontSize: "14px",
-                lineHeight: 1.6,
-                color: msg.role === "user" ? "#fff" : "rgba(255,255,255,0.88)",
+                  msg.role === "user" ? "#1a56db" : "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.08)",
               }}
             >
-              <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{msg.content}</p>
+              {/* Markdown Content Renderer */}
+              <div className="markdown-content">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
 
-              {/* Sources */}
               {msg.sources && msg.sources.length > 0 && (
                 <div
                   style={{
-                    marginTop: "12px",
+                    marginTop: "16px",
                     paddingTop: "12px",
-                    borderTop: "1px solid rgba(255,255,255,0.08)",
+                    borderTop: "1px solid rgba(255,255,255,0.1)",
                   }}
                 >
-                  <p
+                  <span
                     style={{
                       fontSize: "10px",
-                      fontWeight: 600,
-                      letterSpacing: "0.08em",
-                      color: "rgba(255,255,255,0.3)",
-                      marginBottom: "8px",
+                      color: "rgba(255,255,255,0.4)",
+                      fontWeight: 700,
                       textTransform: "uppercase",
                     }}
                   >
                     Sources
-                  </p>
+                  </span>
                   <div
                     style={{
+                      marginTop: "8px",
                       display: "flex",
                       flexDirection: "column",
                       gap: "6px",
@@ -297,113 +246,112 @@ export default function ManualsPage() {
             </div>
           </div>
         ))}
-
-        {/* Typing indicator */}
         {loading && (
-          <div style={{ display: "flex", justifyContent: "flex-start" }}>
-            <div
-              style={{
-                padding: "12px 16px",
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "18px 18px 18px 4px",
-                display: "flex",
-                gap: "5px",
-                alignItems: "center",
-              }}
-            >
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    background: "rgba(255,255,255,0.35)",
-                    animation: "bounce 1.2s infinite",
-                    animationDelay: `${i * 0.2}s`,
-                  }}
-                />
-              ))}
-            </div>
+          <div
+            style={{
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "12px",
+              marginLeft: "8px",
+            }}
+          >
+            AI is searching manuals...
           </div>
         )}
-
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area */}
+      {/* Input Area */}
       <div
         style={{
-          padding: "10px 12px",
-          paddingBottom: "calc(10px + env(safe-area-inset-bottom))", // iPhone notch safe area
-          borderTop: "1px solid rgba(255,255,255,0.07)",
+          padding: "20px",
           background: "#0f1117",
-          flexShrink: 0,
-          display: "flex",
-          gap: "8px",
-          alignItems: "center",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
         }}
       >
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleAsk()}
-          disabled={loading}
-          placeholder="Ask about the manuals..."
+        <div
           style={{
-            flex: 1,
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "22px",
-            padding: "10px 16px",
-            fontSize: "15px", // 15px prevents iOS auto-zoom on focus
-            color: "#fff",
-            outline: "none",
-            fontFamily: "inherit",
-          }}
-        />
-        <button
-          onClick={() => handleAsk()}
-          disabled={loading || !input.trim()}
-          style={{
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            background:
-              input.trim() && !loading ? "#1a56db" : "rgba(255,255,255,0.08)",
-            border: "none",
-            cursor: input.trim() && !loading ? "pointer" : "not-allowed",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            transition: "background 0.15s",
+            gap: "10px",
+            maxWidth: "800px",
+            margin: "0 auto",
           }}
         >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#fff"
-            strokeWidth="2.5"
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAsk()}
+            placeholder="Type your question..."
+            style={{
+              flex: 1,
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              color: "#fff",
+              outline: "none",
+            }}
+          />
+          <button
+            onClick={() => handleAsk()}
+            disabled={loading || !input.trim()}
+            style={{
+              padding: "0 20px",
+              background: "#1a56db",
+              color: "#fff",
+              border: "none",
+              borderRadius: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+              opacity: loading || !input.trim() ? 0.5 : 1,
+            }}
           >
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
+            Ask
+          </button>
+        </div>
       </div>
 
-      <style>{`
-        @keyframes bounce {
-          0%, 60%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-4px); }
+      <style jsx global>{`
+        .markdown-content {
+          font-size: 14px;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.9);
         }
-        input::placeholder { color: rgba(255,255,255,0.25); }
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 0px; }
+        .markdown-content p {
+          margin: 0 0 12px 0;
+        }
+        .markdown-content p:last-child {
+          margin-bottom: 0;
+        }
+        .markdown-content ul,
+        .markdown-content ol {
+          padding-left: 20px;
+          margin-bottom: 12px;
+        }
+        .markdown-content li {
+          margin-bottom: 4px;
+        }
+        .markdown-content table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 12px 0;
+          font-size: 13px;
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .markdown-content th,
+        .markdown-content td {
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 8px;
+          text-align: left;
+        }
+        .markdown-content th {
+          background: rgba(255, 255, 255, 0.05);
+        }
+        .markdown-content strong {
+          color: #fff;
+        }
       `}</style>
     </div>
   );
