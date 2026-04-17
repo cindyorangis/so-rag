@@ -98,6 +98,15 @@ create index on documents
   with (lists = 100);
 ```
 
+Run this in Supabase SQL Editor to speed up keyword searches:
+
+```sql
+alter table documents add column fts tsvector 
+generated always as (to_tsvector('english', content)) stored;
+
+create index documents_fts_idx on documents using gin (fts);
+```
+
 ---
 
 ## Step 2 — Ingest PDFs (run once, at home)
@@ -110,7 +119,7 @@ pip install -r requirements.txt
 Create `ingest/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_service_role_key
+SUPABASE_PUBLISHABLE_KEY=your_supabase_service_role_key
 ```
 
 Drop all ServiceOntario PDF manuals into `ingest/pdfs/`, then run:
@@ -133,7 +142,7 @@ pip install -r requirements.txt
 Create `api/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_service_role_key
+SUPABASE_PUBLISHABLE_KEY=your_supabase_service_role_key
 GROQ_API_KEY=your_groq_api_key
 ```
 
@@ -211,9 +220,9 @@ Open [http://localhost:3000](http://localhost:3000).
 | File | Variable | Where to get it |
 |---|---|---|
 | `ingest/.env` | `SUPABASE_URL` | Supabase → Project Settings → API |
-| `ingest/.env` | `SUPABASE_KEY` | Supabase → Project Settings → API → service_role |
+| `ingest/.env` | `SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API → service_role |
 | `api/.env` | `SUPABASE_URL` | Same as above |
-| `api/.env` | `SUPABASE_KEY` | Same as above |
+| `api/.env` | `SUPABASE_PUBLISHABLE_KEY` | Same as above |
 | `api/.env` | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
 | `web/.env.local` | `NEXT_PUBLIC_API_URL` | Your Railway deployment URL (or `http://localhost:8080` locally) |
 
