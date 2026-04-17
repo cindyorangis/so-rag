@@ -6,11 +6,11 @@ import remarkGfm from "remark-gfm";
 import { SourceCard } from "@/components/SourceCard";
 
 type Source = { source: string; page_number: number; content: string };
-
 type Message = {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  error?: boolean;
 };
 
 const SUGGESTIONS = [
@@ -45,20 +45,24 @@ export default function ManualsPage() {
         body: JSON.stringify({ question: q }),
       });
 
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      const data = await res.json();
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail?.detail ?? `API error ${res.status}`);
+      }
 
+      const data = await res.json();
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: data.answer, sources: data.sources },
       ]);
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Ask error:", err);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "**Error:** I couldn't connect to the manual database. Please ensure the backend is running.",
+          content: `**Could not get a response.**\n\n${err?.message ?? "Please check that the backend is running."}`,
+          error: true,
         },
       ]);
     } finally {
@@ -66,6 +70,13 @@ export default function ManualsPage() {
       inputRef.current?.focus();
     }
   }
+
+  function handleClear() {
+    setMessages([]);
+    setInput("");
+  }
+
+  const isEmpty = messages.length === 0;
 
   return (
     <div
@@ -83,42 +94,66 @@ export default function ManualsPage() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "12px",
+          justifyContent: "space-between",
           padding: "14px 20px",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
           background: "#0f1117",
           zIndex: 10,
         }}
       >
-        <div
-          style={{ background: "#1a56db", padding: "6px", borderRadius: "8px" }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#fff"
-            strokeWidth="2"
-          >
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-          </svg>
-        </div>
-        <div>
-          <h1 style={{ fontSize: "15px", fontWeight: 600, margin: 0 }}>
-            ServiceOntario
-          </h1>
-          <p
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div
             style={{
-              fontSize: "11px",
-              color: "rgba(255,255,255,0.4)",
-              margin: 0,
+              background: "#1a56db",
+              padding: "6px",
+              borderRadius: "8px",
             }}
           >
-            Policy Intelligence Unit
-          </p>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="2"
+            >
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <div>
+            <h1 style={{ fontSize: "15px", fontWeight: 600, margin: 0 }}>
+              ServiceOntario
+            </h1>
+            <p
+              style={{
+                fontSize: "11px",
+                color: "rgba(255,255,255,0.4)",
+                margin: 0,
+              }}
+            >
+              Policy Intelligence Unit
+            </p>
+          </div>
         </div>
+
+        {/* Clear button — only shown when there are messages */}
+        {!isEmpty && (
+          <button
+            onClick={handleClear}
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "8px",
+              color: "rgba(255,255,255,0.5)",
+              fontSize: "12px",
+              padding: "6px 12px",
+              cursor: "pointer",
+            }}
+          >
+            Clear
+          </button>
+        )}
       </header>
 
       {/* Messages */}
@@ -132,7 +167,8 @@ export default function ManualsPage() {
           gap: "24px",
         }}
       >
-        {messages.length === 0 && (
+        {/* Empty state */}
+        {isEmpty && (
           <div
             style={{
               flex: 1,
@@ -183,6 +219,7 @@ export default function ManualsPage() {
           </div>
         )}
 
+        {/* Message thread */}
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -200,11 +237,16 @@ export default function ManualsPage() {
                     ? "18px 18px 4px 18px"
                     : "18px 18px 18px 4px",
                 background:
-                  msg.role === "user" ? "#1a56db" : "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                  msg.role === "user"
+                    ? "#1a56db"
+                    : msg.error
+                      ? "rgba(220,50,50,0.1)"
+                      : "rgba(255,255,255,0.05)",
+                border: msg.error
+                  ? "1px solid rgba(220,50,50,0.3)"
+                  : "1px solid rgba(255,255,255,0.08)",
               }}
             >
-              {/* Markdown Content Renderer */}
               <div className="markdown-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {msg.content}
@@ -246,21 +288,66 @@ export default function ManualsPage() {
             </div>
           </div>
         ))}
+
+        {/* Loading indicator */}
         {loading && (
           <div
             style={{
-              color: "rgba(255,255,255,0.4)",
-              fontSize: "12px",
-              marginLeft: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginLeft: "4px",
             }}
           >
-            AI is searching manuals...
+            <div style={{ display: "flex", gap: "4px" }}>
+              {[0, 1, 2].map((n) => (
+                <div
+                  key={n}
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,0.3)",
+                    animation: "pulse 1.2s ease-in-out infinite",
+                    animationDelay: `${n * 0.2}s`,
+                  }}
+                />
+              ))}
+            </div>
+            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px" }}>
+              Searching manuals...
+            </span>
           </div>
         )}
+
+        {/* Suggestion chips — shown after first message */}
+        {!isEmpty && !loading && (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => handleAsk(s)}
+                style={{
+                  padding: "6px 12px",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "20px",
+                  color: "rgba(255,255,255,0.5)",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
-      {/* Input Area */}
+      {/* Input */}
       <div
         style={{
           padding: "20px",
@@ -280,8 +367,9 @@ export default function ManualsPage() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAsk()}
-            placeholder="Type your question..."
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleAsk()}
+            placeholder="Ask about ServiceOntario policies..."
+            disabled={loading}
             style={{
               flex: 1,
               background: "rgba(255,255,255,0.05)",
@@ -290,6 +378,7 @@ export default function ManualsPage() {
               padding: "12px 16px",
               color: "#fff",
               outline: "none",
+              opacity: loading ? 0.6 : 1,
             }}
           />
           <button
@@ -304,14 +393,26 @@ export default function ManualsPage() {
               fontWeight: 600,
               cursor: "pointer",
               opacity: loading || !input.trim() ? 0.5 : 1,
+              minWidth: "64px",
             }}
           >
-            Ask
+            {loading ? "..." : "Ask"}
           </button>
         </div>
       </div>
 
       <style jsx global>{`
+        @keyframes pulse {
+          0%,
+          100% {
+            opacity: 0.3;
+            transform: scale(0.8);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
         .markdown-content {
           font-size: 14px;
           line-height: 1.6;
@@ -351,6 +452,12 @@ export default function ManualsPage() {
         }
         .markdown-content strong {
           color: #fff;
+        }
+        .markdown-content code {
+          background: rgba(255, 255, 255, 0.08);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 12px;
         }
       `}</style>
     </div>
