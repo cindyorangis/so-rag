@@ -15,7 +15,7 @@ A self-hosted RAG (Retrieval-Augmented Generation) tool that lets you ask plain 
 | Layer | Tool |
 |---|---|
 | PDF Parsing | `pdfplumber` (Python) |
-| Embeddings | `sentence-transformers` — `all-MiniLM-L6-v2` (local, free) |
+| Embeddings | `sentence-transformers` — `BAAI/bge-base-en-v1.5` (local, free) |
 | Vector Database | Supabase pgvector |
 | LLM | Groq API — Llama 3.3 70B (free tier) |
 | Backend | FastAPI (Python) |
@@ -69,14 +69,15 @@ create extension if not exists vector;
 create table documents (
   id bigserial primary key,
   content text not null,
-  embedding vector(384),
+  embedding vector(768),
   source text,
-  page_number int
+  page_number int,
+  chunk_type text default 'text'
 );
 
 create or replace function match_documents(
-  query_embedding vector(384),
-  match_count int default 10
+  query_embedding vector(768),
+  match_count int default 12
 )
 returns table(
   id bigint,
@@ -89,6 +90,7 @@ language sql stable as $$
   select id, content, source, page_number,
     1 - (embedding <=> query_embedding) as similarity
   from documents
+  where 1 - (embedding <=> query_embedding) > 0.35
   order by embedding <=> query_embedding
   limit match_count;
 $$;
@@ -101,13 +103,31 @@ create index on documents
 Run this in Supabase SQL Editor to speed up keyword searches:
 
 ```sql
-alter table documents add column fts tsvector 
+alter table documents add column fts tsvector
 generated always as (to_tsvector('english', content)) stored;
 
 create index documents_fts_idx on documents using gin (fts);
 ```
 
----
+### If migrating from the old 384-dimension setup
+
+If you have an existing `documents` table from a previous version (using `all-MiniLM-L6-v2`), run this to migrate before re-ingesting:
+
+```sql
+truncate table documents;
+
+drop index if exists documents_embedding_idx;
+
+alter table documents drop column embedding;
+alter table documents add column embedding vector(768);
+alter table documents add column if not exists chunk_type text default 'text';
+
+create index documents_embedding_idx on documents
+  using ivfflat (embedding vector_cosine_ops)
+  with (lists = 100);
+```
+
+Then re-run the ingest script from scratch.
 
 ## Step 2 — Ingest PDFs (run once, at home)
 

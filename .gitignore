@@ -43,6 +43,7 @@ web/*.tsbuildinfo
 web/next-env.d.ts
 
 api/.env*
+api/__pycache__/
 
 ingest/pdfs/*
 ingest/.env*

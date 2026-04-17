@@ -11,13 +11,13 @@ load_dotenv()
 
 # Use Service Role Key for ingestion (bypass RLS)
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_PUBLISHABLE_KEY"))
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
 # 1. Smarter Splitter: Tries to keep paragraphs and sentences together
 text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=600,
-    chunk_overlap=80,
-    separators=["\n\n", "\n", ". ", " ", ""]
+    chunk_size=800,      # slightly larger — government sentences are long
+    chunk_overlap=150,   # more overlap catches cross-boundary answers
+    separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""]
 )
 
 def get_already_ingested():
