@@ -2,3 +2,5 @@ pdfplumber
 sentence-transformers
 supabase
 python-dotenv
+langchain-text-splitters
+torch --index-url https://download.pytorch.org/whl/cpu

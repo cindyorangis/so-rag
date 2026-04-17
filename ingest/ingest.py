@@ -5,12 +5,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client
 from sentence_transformers import SentenceTransformer
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
 # Use Service Role Key for ingestion (bypass RLS)
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_PUBLISHABLE_KEY"))
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # 1. Smarter Splitter: Tries to keep paragraphs and sentences together
