@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from groq import Groq
+import re
 
 load_dotenv()
 
@@ -39,6 +40,16 @@ class AskResponse(BaseModel):
     answer: str
     sources: list[Source]
 
+def clean_for_fts(question: str) -> str:
+    """Strip punctuation and join keywords for Postgres tsquery."""
+    # Remove punctuation, lowercase, split into words
+    words = re.sub(r"[^\w\s]", "", question.lower()).split()
+    # Filter out common stop words Postgres can't handle
+    stop_words = {"what", "are", "the", "for", "a", "an", "do", "i", "how",
+                  "is", "to", "in", "of", "and", "or", "need", "get", "can"}
+    keywords = [w for w in words if w not in stop_words]
+    # Join with & for AND search
+    return " & ".join(keywords) if keywords else ""
 
 async def hybrid_search(question: str, query_embedding: list, match_count: int):
     # Semantic search
@@ -47,12 +58,14 @@ async def hybrid_search(question: str, query_embedding: list, match_count: int):
         "match_count": match_count,
     }).execute().data
 
-    # Keyword search
-    keyword = supabase.table("documents") \
-        .select("id, content, source, page_number") \
-        .text_search("fts", question, config="english") \
-        .limit(match_count) \
-        .execute().data
+    # Keyword search — only run if we have usable keywords
+    keyword = []
+    fts_query = clean_for_fts(question)
+    if fts_query:
+        keyword = supabase.table("documents") \
+            .select("id, content, source, page_number") \
+            .text_search("fts", fts_query, options={"limit": match_count}) \
+            .execute().data
 
     # Merge and deduplicate by id
     seen, merged = set(), []
@@ -61,8 +74,7 @@ async def hybrid_search(question: str, query_embedding: list, match_count: int):
             seen.add(row["id"])
             merged.append(row)
 
-    return merged[:match_count + 4]  # slightly wider pool for reranking
-
+    return merged[:match_count + 4]
 
 def rerank(question: str, chunks: list[dict], top_k: int = 6) -> list[dict]:
     pairs = [(question, c["content"]) for c in chunks]
