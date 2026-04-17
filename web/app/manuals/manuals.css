@@ -1,0 +1,46 @@
+/* app/manuals.css  (import this in page.tsx) */
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.markdown-content {
+  @apply text-sm leading-relaxed text-white/90;
+}
+.markdown-content p {
+  @apply mb-3 block;
+}
+.markdown-content p:last-child {
+  @apply mb-0;
+}
+.markdown-content ul,
+.markdown-content ol {
+  @apply block pl-5 mb-3;
+}
+.markdown-content li {
+  @apply list-item mb-1;
+}
+.markdown-content table {
+  @apply w-full border-collapse my-3 text-[13px] bg-black/20 rounded-lg overflow-hidden;
+}
+.markdown-content th,
+.markdown-content td {
+  @apply border border-white/10 p-2 text-left;
+}
+.markdown-content th {
+  @apply bg-white/5;
+}
+.markdown-content strong {
+  @apply text-white;
+}
+.markdown-content code {
+  @apply bg-white/10 px-1.5 py-px rounded text-xs;
+}

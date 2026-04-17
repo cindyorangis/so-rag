@@ -10,7 +10,6 @@ export function SourceCard({
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Clean filename: remove extension, replace separators, trim, title-case
   const shortName = source.source
     .replace(/\.pdf$/i, "")
     .replace(/[-_]/g, " ")
@@ -26,41 +25,13 @@ export function SourceCard({
   }
 
   return (
-    <div
-      style={{
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "10px",
-        overflow: "hidden",
-        fontSize: "12px",
-        background: "rgba(255,255,255,0.04)",
-      }}
-    >
-      {/* Header row */}
+    <div className="border border-white/[0.08] rounded-xl overflow-hidden text-xs bg-white/[0.04]">
+      {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px 12px",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          textAlign: "left",
-          gap: "8px",
-          color: "rgba(255,255,255,0.5)",
-        }}
+        className="w-full flex items-center justify-between px-3 py-2 bg-transparent border-none cursor-pointer text-left gap-2 text-white/50 hover:text-white/70 transition-colors"
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            minWidth: 0,
-          }}
-        >
-          {/* Doc icon */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <svg
             width="11"
             height="11"
@@ -68,43 +39,21 @@ export function SourceCard({
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
-            style={{ flexShrink: 0, opacity: 0.5 }}
+            className="shrink-0 opacity-50"
           >
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
             <polyline points="14 2 14 8 20 8" />
           </svg>
 
-          {/* Filename — truncated */}
-          <span
-            style={{
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: "220px",
-              color: "rgba(255,255,255,0.7)",
-            }}
-          >
+          <span className="truncate max-w-[220px] text-white/70">
             {shortName}
           </span>
 
-          {/* Page badge */}
-          <span
-            style={{
-              flexShrink: 0,
-              background: "rgba(26,86,219,0.25)",
-              color: "#6b9eff",
-              borderRadius: "4px",
-              padding: "1px 6px",
-              fontSize: "10px",
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-            }}
-          >
+          <span className="shrink-0 bg-blue-500/20 text-blue-400 rounded px-1.5 py-px text-[10px] font-semibold tracking-wide">
             p.{source.page_number}
           </span>
         </div>
 
-        {/* Chevron */}
         <svg
           width="10"
           height="10"
@@ -112,60 +61,27 @@ export function SourceCard({
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
-          style={{
-            flexShrink: 0,
-            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.2s ease",
-          }}
+          className={`shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : "rotate-0"}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
-      {/* Expanded content */}
+      {/* Expandable content */}
       <div
-        style={{
-          display: "grid",
-          gridTemplateRows: expanded ? "1fr" : "0fr",
-          transition: "grid-template-rows 0.2s ease",
-        }}
+        className={`grid transition-all duration-200 ease-in-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       >
-        <div style={{ overflow: "hidden" }}>
-          <div
-            style={{
-              padding: "10px 12px",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-            {/* Content text */}
-            <p
-              style={{
-                margin: "0 0 10px 0",
-                color: "rgba(255,255,255,0.6)",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-                fontSize: "11.5px",
-              }}
-            >
+        <div className="overflow-hidden">
+          <div className="px-3 pb-3 pt-2.5 border-t border-white/[0.06]">
+            <p className="text-white/60 leading-relaxed whitespace-pre-wrap text-[11.5px] mb-2.5">
               {source.content}
             </p>
 
-            {/* Copy button */}
             <button
               onClick={handleCopy}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "6px",
-                color: copied ? "#6b9eff" : "rgba(255,255,255,0.4)",
-                fontSize: "11px",
-                padding: "4px 10px",
-                cursor: "pointer",
-                transition: "color 0.2s",
-              }}
+              className={`flex items-center gap-1 bg-white/5 border border-white/[0.08] rounded-md text-[11px] px-2.5 py-1 cursor-pointer transition-colors ${
+                copied ? "text-blue-400" : "text-white/40 hover:text-white/60"
+              }`}
             >
               {copied ? (
                 <>

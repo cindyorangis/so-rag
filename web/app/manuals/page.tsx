@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SourceCard } from "@/components/SourceCard";
+import "./manuals.css";
 
 type Source = { source: string; page_number: number; content: string };
 type Message = {
@@ -400,66 +401,6 @@ export default function ManualsPage() {
           </button>
         </div>
       </div>
-
-      <style jsx global>{`
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 0.3;
-            transform: scale(0.8);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        .markdown-content {
-          font-size: 14px;
-          line-height: 1.6;
-          color: rgba(255, 255, 255, 0.9);
-        }
-        .markdown-content p {
-          margin: 0 0 12px 0;
-        }
-        .markdown-content p:last-child {
-          margin-bottom: 0;
-        }
-        .markdown-content ul,
-        .markdown-content ol {
-          padding-left: 20px;
-          margin-bottom: 12px;
-        }
-        .markdown-content li {
-          margin-bottom: 4px;
-        }
-        .markdown-content table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 12px 0;
-          font-size: 13px;
-          background: rgba(0, 0, 0, 0.2);
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .markdown-content th,
-        .markdown-content td {
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 8px;
-          text-align: left;
-        }
-        .markdown-content th {
-          background: rgba(255, 255, 255, 0.05);
-        }
-        .markdown-content strong {
-          color: #fff;
-        }
-        .markdown-content code {
-          background: rgba(255, 255, 255, 0.08);
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 12px;
-        }
-      `}</style>
     </div>
   );
 }
