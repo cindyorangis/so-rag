@@ -20,6 +20,13 @@ const SUGGESTIONS = [
   "What are the fees for a personalized plate?",
 ];
 
+function normalizeBullets(text: string): string {
+  return text
+    .replace(/•\s*/g, "- ") // unicode bullet → markdown list
+    .replace(/·\s*/g, "- ") // middle dot variant
+    .replace(/\*\s+/g, "- "); // * item → - item (if not bold)
+}
+
 export default function ManualsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -52,9 +59,14 @@ export default function ManualsPage() {
       }
 
       const data = await res.json();
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.answer, sources: data.sources },
+        {
+          role: "assistant",
+          content: normalizeBullets(data.answer),
+          sources: data.sources,
+        },
       ]);
     } catch (err: any) {
       console.error("Ask error:", err);
