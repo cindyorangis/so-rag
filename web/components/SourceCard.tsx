@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export function SourceCard({
   source,
@@ -73,9 +75,11 @@ export function SourceCard({
       >
         <div className="overflow-hidden">
           <div className="px-3 pb-3 pt-2.5 border-t border-white/[0.06]">
-            <p className="text-white/60 leading-relaxed whitespace-pre-wrap text-[11.5px] mb-2.5">
-              {source.content}
-            </p>
+            <div className="markdown-content text-[11.5px] mb-2.5 text-white/60">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {source.content}
+              </ReactMarkdown>
+            </div>
 
             <button
               onClick={handleCopy}
