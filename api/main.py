@@ -14,7 +14,7 @@ app = FastAPI()
 # Updated CORS to include common development and production origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Adjust to specific domains for production security
+    allow_origins=["http://localhost:3000", "https://so-rag.vercel.app/"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
