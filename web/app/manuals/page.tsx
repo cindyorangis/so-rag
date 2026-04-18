@@ -22,9 +22,9 @@ const SUGGESTIONS = [
 
 function normalizeBullets(text: string): string {
   return text
-    .replace(/•\s*/g, "- ") // unicode bullet → markdown list
-    .replace(/·\s*/g, "- ") // middle dot variant
-    .replace(/\*\s+/g, "- "); // * item → - item (if not bold)
+    .replace(/•\s*/g, "- ")
+    .replace(/·\s*/g, "- ")
+    .replace(/\*\s+/g, "- ");
 }
 
 export default function ManualsPage() {
@@ -59,7 +59,6 @@ export default function ManualsPage() {
       }
 
       const data = await res.json();
-
       setMessages((prev) => [
         ...prev,
         {
@@ -92,77 +91,27 @@ export default function ManualsPage() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100dvh",
-        background: "#0f1117",
-        color: "#fff",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      }}
-    >
+    <div className="flex flex-col h-dvh bg-[#0f1117] text-white font-sans">
+
       {/* Header */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "14px 20px",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
-          background: "#0f1117",
-          zIndex: 10,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div
-            style={{
-              background: "#1a56db",
-              padding: "6px",
-              borderRadius: "8px",
-            }}
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#fff"
-              strokeWidth="2"
-            >
+      <header className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.07] bg-[#0f1117] z-10">
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-600 p-1.5 rounded-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
               <polyline points="14 2 14 8 20 8" />
             </svg>
           </div>
           <div>
-            <h1 style={{ fontSize: "15px", fontWeight: 600, margin: 0 }}>
-              ServiceOntario
-            </h1>
-            <p
-              style={{
-                fontSize: "11px",
-                color: "rgba(255,255,255,0.4)",
-                margin: 0,
-              }}
-            >
-              Policy Intelligence Unit
-            </p>
+            <h1 className="text-[15px] font-semibold m-0">ServiceOntario</h1>
+            <p className="text-[11px] text-white/40 m-0">Policy Intelligence Unit</p>
           </div>
         </div>
 
-        {/* Clear button — only shown when there are messages */}
         {!isEmpty && (
           <button
             onClick={handleClear}
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "8px",
-              color: "rgba(255,255,255,0.5)",
-              fontSize: "12px",
-              padding: "6px 12px",
-              cursor: "pointer",
-            }}
+            className="bg-white/5 border border-white/10 rounded-lg text-white/50 text-xs px-3 py-1.5 cursor-pointer hover:text-white/70 transition-colors"
           >
             Clear
           </button>
@@ -170,212 +119,108 @@ export default function ManualsPage() {
       </header>
 
       {/* Messages */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "20px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "24px",
-        }}
-      >
-        {/* Empty state */}
-        {isEmpty && (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              gap: "24px",
-            }}
-          >
-            <div>
-              <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>
-                How can I help you today?
-              </h2>
-              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px" }}>
-                Search verified ServiceOntario manuals instantly.
-              </p>
+      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-6">
+        <div className="w-full max-w-[760px] mx-auto flex flex-col gap-6 flex-1">
+
+          {/* Empty state */}
+          {isEmpty && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-6">
+              <div>
+                <h2 className="text-xl mb-2">How can I help you today?</h2>
+                <p className="text-white/50 text-sm">Search verified ServiceOntario manuals instantly.</p>
+              </div>
+              <div className="flex flex-col gap-2.5 w-full max-w-[400px]">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handleAsk(s)}
+                    className="px-4 py-3 bg-white/[0.03] border border-white/10 rounded-xl text-white/80 text-left cursor-pointer text-[13px] hover:bg-white/[0.06] transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Message thread */}
+          {messages.map((msg, i) => (
             <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-                width: "100%",
-                maxWidth: "400px",
-              }}
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
+              <div
+                className={`max-w-[90%] px-4 py-3 border ${
+                  msg.role === "user"
+                    ? "rounded-[18px_18px_4px_18px] bg-blue-600 border-white/[0.08]"
+                    : msg.error
+                      ? "rounded-[18px_18px_18px_4px] bg-red-500/10 border-red-500/30"
+                      : "rounded-[18px_18px_18px_4px] bg-white/5 border-white/[0.08]"
+                }`}
+              >
+                <div className="markdown-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
+
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-white/10">
+                    <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider">
+                      Sources
+                    </span>
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {msg.sources.map((s, j) => (
+                        <SourceCard key={j} source={s} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Loading indicator */}
+          {loading && (
+            <div className="flex items-center gap-2 ml-1">
+              <div className="flex gap-1">
+                {[0, 1, 2].map((n) => (
+                  <div
+                    key={n}
+                    className="w-1.5 h-1.5 rounded-full bg-white/30"
+                    style={{
+                      animation: "pulse 1.2s ease-in-out infinite",
+                      animationDelay: `${n * 0.2}s`,
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="text-white/40 text-xs">Searching manuals...</span>
+            </div>
+          )}
+
+          {/* Suggestion chips */}
+          {!isEmpty && !loading && (
+            <div className="flex gap-2 flex-wrap">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   onClick={() => handleAsk(s)}
-                  style={{
-                    padding: "12px 16px",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: "12px",
-                    color: "rgba(255,255,255,0.8)",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    fontSize: "13px",
-                  }}
+                  className="px-3 py-1.5 bg-white/[0.03] border border-white/10 rounded-full text-white/50 cursor-pointer text-xs whitespace-nowrap hover:text-white/70 transition-colors"
                 >
                   {s}
                 </button>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Message thread */}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-            }}
-          >
-            <div
-              style={{
-                maxWidth: "90%",
-                padding: "12px 16px",
-                borderRadius:
-                  msg.role === "user"
-                    ? "18px 18px 4px 18px"
-                    : "18px 18px 18px 4px",
-                background:
-                  msg.role === "user"
-                    ? "#1a56db"
-                    : msg.error
-                      ? "rgba(220,50,50,0.1)"
-                      : "rgba(255,255,255,0.05)",
-                border: msg.error
-                  ? "1px solid rgba(220,50,50,0.3)"
-                  : "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <div className="markdown-content">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {msg.content}
-                </ReactMarkdown>
-              </div>
-
-              {msg.sources && msg.sources.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "16px",
-                    paddingTop: "12px",
-                    borderTop: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      color: "rgba(255,255,255,0.4)",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Sources
-                  </span>
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
-                    }}
-                  >
-                    {msg.sources.map((s, j) => (
-                      <SourceCard key={j} source={s} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {/* Loading indicator */}
-        {loading && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginLeft: "4px",
-            }}
-          >
-            <div style={{ display: "flex", gap: "4px" }}>
-              {[0, 1, 2].map((n) => (
-                <div
-                  key={n}
-                  style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    background: "rgba(255,255,255,0.3)",
-                    animation: "pulse 1.2s ease-in-out infinite",
-                    animationDelay: `${n * 0.2}s`,
-                  }}
-                />
-              ))}
-            </div>
-            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px" }}>
-              Searching manuals...
-            </span>
-          </div>
-        )}
-
-        {/* Suggestion chips — shown after first message */}
-        {!isEmpty && !loading && (
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => handleAsk(s)}
-                style={{
-                  padding: "6px 12px",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "20px",
-                  color: "rgba(255,255,255,0.5)",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Input */}
-      <div
-        style={{
-          padding: "20px",
-          background: "#0f1117",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-            maxWidth: "800px",
-            margin: "0 auto",
-          }}
-        >
+      <div className="px-5 py-5 bg-[#0f1117] border-t border-white/[0.07]">
+        <div className="flex gap-2.5 max-w-[800px] mx-auto">
           <input
             ref={inputRef}
             value={input}
@@ -383,31 +228,12 @@ export default function ManualsPage() {
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleAsk()}
             placeholder="Ask about ServiceOntario policies..."
             disabled={loading}
-            style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "12px",
-              padding: "12px 16px",
-              color: "#fff",
-              outline: "none",
-              opacity: loading ? 0.6 : 1,
-            }}
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none text-sm placeholder:text-white/30 disabled:opacity-60 focus:border-white/20 transition-colors"
           />
           <button
             onClick={() => handleAsk()}
             disabled={loading || !input.trim()}
-            style={{
-              padding: "0 20px",
-              background: "#1a56db",
-              color: "#fff",
-              border: "none",
-              borderRadius: "12px",
-              fontWeight: 600,
-              cursor: "pointer",
-              opacity: loading || !input.trim() ? 0.5 : 1,
-              minWidth: "64px",
-            }}
+            className="px-5 bg-blue-600 text-white border-none rounded-xl font-semibold cursor-pointer min-w-16 disabled:opacity-50 hover:bg-blue-500 transition-colors text-sm"
           >
             {loading ? "..." : "Ask"}
           </button>
