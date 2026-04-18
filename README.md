@@ -22,6 +22,7 @@ Supports two document types:
 | Image Description | Ollama — `moondream` (local, free) |
 | Embeddings | `sentence-transformers` — `BAAI/bge-base-en-v1.5` (local, free) |
 | Vector Database | Supabase pgvector |
+| PDF Storage | Supabase Storage |
 | LLM | Groq API — Llama 3.3 70B (free tier) |
 | Backend | FastAPI (Python) |
 | Frontend | Next.js + Tailwind CSS |
@@ -59,6 +60,8 @@ serviceontario-rag/
 │   │   ├── page.tsx
 │   │   └── manuals/
 │   │       └── page.tsx
+│   ├── components/
+│   │   └── SourceCard.tsx
 │   ├── package.json
 │   └── .env.local
 ├── .gitignore
@@ -81,7 +84,8 @@ create table documents (
   source text,
   page_number int,
   chunk_type text default 'text',
-  section_title text
+  section_title text,
+  pdf_url text
 );
 
 create or replace function match_documents(
@@ -93,10 +97,13 @@ returns table(
   content text,
   source text,
   page_number int,
+  chunk_type text,
+  section_title text,
+  pdf_url text,
   similarity float
 )
 language sql stable as $$
-  select id, content, source, page_number,
+  select id, content, source, page_number, chunk_type, section_title, pdf_url,
     1 - (embedding <=> query_embedding) as similarity
   from documents
   where 1 - (embedding <=> query_embedding) > 0.35
@@ -118,26 +125,22 @@ generated always as (to_tsvector('english', content)) stored;
 create index documents_fts_idx on documents using gin (fts);
 ```
 
-### If migrating from the old 384-dimension setup
+### Supabase Storage
 
-If you have an existing `documents` table from a previous version (using `all-MiniLM-L6-v2`), run this to migrate before re-ingesting:
+1. Go to **Storage** → **New bucket**
+2. Name it `manuals`
+3. Set it to **Public**
+4. Upload all your procedure PDFs (same files you ingested)
+
+### If migrating from an existing setup
 
 ```sql
-truncate table documents;
-
-drop index if exists documents_embedding_idx;
-
-alter table documents drop column embedding;
-alter table documents add column embedding vector(768);
 alter table documents add column if not exists chunk_type text default 'text';
 alter table documents add column if not exists section_title text;
-
-create index documents_embedding_idx on documents
-  using ivfflat (embedding vector_cosine_ops)
-  with (lists = 100);
+alter table documents add column if not exists pdf_url text;
 ```
 
-Then re-run the ingest scripts from scratch.
+Then replace the `match_documents` function using the definition above and re-run the ingest scripts.
 
 ---
 
@@ -152,7 +155,10 @@ Create `ingest/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_PUBLISHABLE_KEY=your_supabase_service_role_key
+SUPABASE_STORAGE_URL=https://your-project-ref.supabase.co/storage/v1/object/public/manuals
 ```
+
+Your `SUPABASE_STORAGE_URL` is found in Supabase → Storage → select the `manuals` bucket → click any file → copy the URL up to and including `/manuals`.
 
 ### Policy / FAQ docs
 
@@ -164,7 +170,7 @@ python ingest.py
 
 ### Procedure manuals (with screenshots)
 
-Procedure manuals like the IRP manual are chunked by section heading and have their screenshots automatically described using a local vision model.
+Procedure manuals like the IRP manual are chunked by section heading and have their screenshots automatically described using a local vision model. A public URL is stored with each chunk so agents can open the source PDF directly to the cited page.
 
 **First, install and start Ollama:**
 
@@ -180,7 +186,7 @@ Drop procedure PDFs into `ingest/pdfs/procedures/`, then in a separate terminal 
 python ingest_procedures.py
 ```
 
-This will take a while for large manuals — leave it running. Ollama must be running in the background while ingest is in progress, but is not needed after that.
+This will take a while for large manuals — leave it running. Ollama must be running in the background during ingest, but is not needed after that.
 
 Both scripts append to the same `documents` table in Supabase. You only ever need to re-run them if you add or update manuals.
 
@@ -242,8 +248,8 @@ When a query matches a procedure manual chunk, the API automatically switches to
 - The response is formatted as numbered steps
 - Screenshot descriptions (generated at ingest time) are included as context for the LLM
 - The `mode: "procedure"` field is returned in the API response
-- The frontend renders the answer as a step-by-step list
 - Citations include the section title and page number
+- An **Open** link appears on each source card — clicking it opens the PDF directly to the cited page in a new tab
 
 This detection is automatic — the same search bar handles both policy questions and procedure lookups.
 
@@ -277,9 +283,10 @@ For policy docs:
 2. Run `python ingest.py`
 
 For procedure manuals:
-1. Drop new PDFs into `ingest/pdfs/procedures/`
-2. Start Ollama: `ollama serve`
-3. Run `python ingest_procedures.py`
+1. Upload the new PDF to Supabase Storage → `manuals` bucket
+2. Drop the same PDF into `ingest/pdfs/procedures/`
+3. Start Ollama: `ollama serve`
+4. Run `python ingest_procedures.py`
 
 New content is appended to Supabase — no redeployment needed.
 
@@ -291,6 +298,7 @@ New content is appended to Supabase — no redeployment needed.
 |---|---|---|
 | `ingest/.env` | `SUPABASE_URL` | Supabase → Project Settings → API |
 | `ingest/.env` | `SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API → service_role |
+| `ingest/.env` | `SUPABASE_STORAGE_URL` | Supabase → Storage → manuals bucket → any file URL, trimmed to `/manuals` |
 | `api/.env` | `SUPABASE_URL` | Same as above |
 | `api/.env` | `SUPABASE_PUBLISHABLE_KEY` | Same as above |
 | `api/.env` | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
@@ -335,6 +343,7 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 3. Press **Enter** or click **Ask**
 4. Your answer will appear — either as a direct answer or as numbered steps, depending on the question
 5. Citations below the answer show which manual, section, and page the answer came from
+6. Click **Open** on any source card to open the original PDF directly to the cited page
 
 ---
 
@@ -342,7 +351,7 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 
 - **Answers only come from the manuals.** If something isn't covered in the uploaded manuals, the tool will say so rather than guessing.
 - **It is not connected to the internet.** It will not reflect recent policy changes unless the manuals have been updated and re-ingested.
-- **Citations are shown below each answer.** You can use the page number to find the original passage in the source PDF if you need to verify something.
+- **Citations are shown below each answer.** Click **Open** to view the original page in the source PDF, including any screenshots.
 - **It is not an official ServiceOntario service.** Always confirm important information directly with ServiceOntario for anything official or time-sensitive.
 
 ---
@@ -354,4 +363,5 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 | "Something went wrong" error | The API server may be down — contact your administrator |
 | Answer says it couldn't find anything | Try rephrasing your question, or the topic may not be covered in the loaded manuals |
 | Answer seems outdated | The manuals may need to be updated — contact your administrator |
-| Steps are missing screenshots | Screenshots are described in text — refer to the cited page in the original PDF for visuals |
+| Open link not appearing on a source | That document may not be uploaded to Supabase Storage yet — contact your administrator |
+| Open link opens to wrong page | PDF page numbering may differ from manual page numbering — navigate manually from the cited page number |
