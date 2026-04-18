@@ -20,6 +20,8 @@ type Message = {
   sources?: Source[];
   mode?: "answer" | "procedure";
   error?: boolean;
+  question?: string;
+  feedback?: "up" | "down" | null;
 };
 
 const SUGGESTIONS = [
@@ -79,6 +81,8 @@ export default function ManualsPage() {
           content: normalizeBullets(data.answer),
           sources: data.sources,
           mode: data.mode,
+          question: q,
+          feedback: null,
         },
       ]);
     } catch (err: any) {
@@ -100,6 +104,31 @@ export default function ManualsPage() {
   function handleClear() {
     setMessages([]);
     setInput("");
+  }
+
+  async function handleFeedback(msgIndex: number, rating: "up" | "down") {
+    const msg = messages[msgIndex];
+    if (!msg || msg.feedback) return; // already rated
+
+    // Optimistically update UI
+    setMessages((prev) =>
+      prev.map((m, i) => (i === msgIndex ? { ...m, feedback: rating } : m)),
+    );
+
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: msg.question ?? "",
+          answer: msg.content,
+          rating,
+          sources: msg.sources ?? [],
+        }),
+      });
+    } catch (err) {
+      console.error("Feedback error:", err);
+    }
   }
 
   const isEmpty = messages.length === 0;
@@ -186,6 +215,56 @@ export default function ManualsPage() {
                     {msg.content}
                   </ReactMarkdown>
                 </div>
+
+                {msg.role === "assistant" && !msg.error && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-[10px] text-white/30">Helpful?</span>
+                    <button
+                      onClick={() => handleFeedback(i, "up")}
+                      disabled={!!msg.feedback}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] transition-colors ${
+                        msg.feedback === "up"
+                          ? "border-green-500/50 text-green-400 bg-green-500/10"
+                          : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
+                      } disabled:cursor-default`}
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill={msg.feedback === "up" ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" />
+                        <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" />
+                      </svg>
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => handleFeedback(i, "down")}
+                      disabled={!!msg.feedback}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] transition-colors ${
+                        msg.feedback === "down"
+                          ? "border-red-500/50 text-red-400 bg-red-500/10"
+                          : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
+                      } disabled:cursor-default`}
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill={msg.feedback === "down" ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z" />
+                        <path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17" />
+                      </svg>
+                      No
+                    </button>
+                  </div>
+                )}
 
                 {msg.sources && msg.sources.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-white/10">

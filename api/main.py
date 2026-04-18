@@ -40,6 +40,12 @@ class AskResponse(BaseModel):
     sources: list[Source]
     mode: str = "answer"
 
+class FeedbackRequest(BaseModel):
+    question: str
+    answer: str
+    rating: str  # "up" or "down"
+    sources: list[dict] = []
+
 def clean_for_fts(question: str) -> str:
     """Strip punctuation and join keywords for Postgres tsquery."""
     # Remove punctuation, lowercase, split into words
@@ -230,6 +236,21 @@ async def ask(body: AskRequest):
         print(f"Error during /ask: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred processing your request.")
 
+@app.post("/feedback")
+async def feedback(body: FeedbackRequest):
+    if body.rating not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="Rating must be 'up' or 'down'")
+    try:
+        supabase.table("feedback").insert({
+            "question": body.question,
+            "answer": body.answer,
+            "rating": body.rating,
+            "sources": body.sources,
+        }).execute()
+        return {"ok": True}
+    except Exception as e:
+        print(f"Feedback error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save feedback")
 
 @app.get("/health")
 def health():
