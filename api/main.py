@@ -80,8 +80,30 @@ def rerank(question: str, chunks: list[dict], top_k: int = 6) -> list[dict]:
     pairs = [(question, c["content"]) for c in chunks]
     scores = reranker.predict(pairs)
     ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
-    return [chunk for _, chunk in ranked[:top_k]]
-
+    
+    # Ensure we don't over-represent a single source
+    seen_sources = {}
+    diverse = []
+    remainder = []
+    
+    for score, chunk in ranked:
+        source = chunk["source"]
+        count = seen_sources.get(source, 0)
+        if count < 2:  # max 2 chunks per source
+            seen_sources[source] = count + 1
+            diverse.append(chunk)
+        else:
+            remainder.append(chunk)
+        if len(diverse) == top_k:
+            break
+    
+    # Fill remaining slots if we didn't hit top_k
+    for chunk in remainder:
+        if len(diverse) >= top_k:
+            break
+        diverse.append(chunk)
+    
+    return diverse
 
 @app.post("/ask", response_model=AskResponse)
 async def ask(body: AskRequest):
@@ -104,7 +126,7 @@ async def ask(body: AskRequest):
             )
 
         # 3. Rerank candidates, keep top 6 for the LLM
-        reranked = rerank(body.question, candidates, top_k=6)
+        reranked = rerank(body.question, candidates, top_k=8)
 
         # 4. Build context from reranked chunks
         context_blocks = []
@@ -123,12 +145,15 @@ async def ask(body: AskRequest):
             "- Never use • unicode bullets — use - instead\n"
             "- Use nested lists with two spaces of indentation for sub-items\n\n"
             "RULES:\n"
-            "1. Base every claim on a provided source. If not covered, say: \"This isn't covered in the available manuals.\"\n"
-            "2. When quoting fees, form numbers, or requirements, cite the manual and page: e.g. (Vehicle Registration Manual, p. 12)\n"
-            "3. Tables contain fees and eligibility — read the column headers carefully before extracting values.\n"
-            "4. Use bullet points for multi-step processes or lists of requirements.\n"
-            "5. If multiple sources conflict, note the discrepancy and cite both.\n"
-            "6. Never invent fees, form numbers, or deadlines."
+            "1. Check ALL provided sources before answering — do not stop at the first relevant one.\n"
+            "2. If multiple manuals cover the topic, synthesize all of them in your answer.\n"
+            "3. If a source is only partially relevant, still extract what applies.\n"
+            "4. Base every claim on a provided source. If not covered, say: \"This isn't covered in the available manuals.\"\n"
+            "5. When quoting fees, form numbers, or requirements, cite the manual and page: e.g. (Vehicle Registration Manual, p. 12)\n"
+            "6. Tables contain fees and eligibility — read the column headers carefully before extracting values.\n"
+            "7. Use bullet points for multi-step processes or lists of requirements.\n"
+            "8. If multiple sources conflict, note the discrepancy and cite both.\n"
+            "9. Never invent fees, form numbers, or deadlines."
         )
 
         user_prompt = f"CONTEXT:\n{context}\n\nQUESTION: {body.question}"
