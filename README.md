@@ -125,7 +125,7 @@ generated always as (to_tsvector('english', content)) stored;
 create index documents_fts_idx on documents using gin (fts);
 ```
 
-Create the feedback table (no RLS required — writes go through your service_role backend):
+Create the feedback and queries tables (no RLS required — writes go through your service_role backend):
 
 ```sql
 create table feedback (
@@ -134,6 +134,12 @@ create table feedback (
   answer text not null,
   rating text not null check (rating in ('up', 'down')),
   sources jsonb,
+  created_at timestamptz default now()
+);
+
+create table queries (
+  id bigserial primary key,
+  question text not null,
   created_at timestamptz default now()
 );
 ```
@@ -288,6 +294,14 @@ select rating, count(*) from feedback group by rating;
 
 ---
 
+## Query Suggestions
+
+Every question asked is logged to the `queries` table. The `/suggestions` endpoint counts frequency and returns the top 6 most common questions, which the frontend displays as suggestion chips instead of the hardcoded fallbacks.
+
+Fallback suggestions are shown on fresh deploys until enough real queries have been logged.
+
+---
+
 ## Deploying
 
 ### API → Railway
@@ -352,6 +366,66 @@ __pycache__/
 web/.next/
 web/node_modules/
 ```
+
+---
+
+## Routine Maintenance
+
+Run these periodically in the Supabase SQL Editor to keep the data clean and useful.
+
+### Monthly — review negative feedback
+
+```sql
+-- Questions that got thumbs down — investigate and improve retrieval or prompts
+select question, created_at
+from feedback
+where rating = 'down'
+order by created_at desc;
+```
+
+### Monthly — clean up test queries from suggestions
+
+Queries logged during development will pollute the suggestions. Remove them before going live and periodically after:
+
+```sql
+-- Remove obvious test entries
+delete from queries
+where question ilike '%test%'
+   or question ilike '%hello%'
+   or question ilike '%asdf%'
+   or length(trim(question)) < 10;
+```
+
+### Quarterly — review top queries vs manual coverage
+
+```sql
+-- Most asked questions — check if answers are good, or if manuals need updating
+select question, count(*) as total
+from queries
+group by question
+order by total desc
+limit 20;
+```
+
+### Quarterly — trim old query logs
+
+The `queries` table grows indefinitely. Keep the last 90 days for suggestions, archive or delete the rest:
+
+```sql
+delete from queries
+where created_at < now() - interval '90 days';
+```
+
+### When manuals are updated
+
+1. Truncate the documents for that source only:
+```sql
+delete from documents where source = 'IRP-Procedure-Manual-2025-Revision-A.pdf';
+```
+2. Re-upload the new PDF to Supabase Storage (replace the existing file)
+3. Re-run the appropriate ingest script
+
+Do not truncate the entire `documents` table unless re-ingesting everything — other manuals will stop working until they are re-ingested.
 
 ---
 

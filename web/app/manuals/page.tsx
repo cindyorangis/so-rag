@@ -24,7 +24,7 @@ type Message = {
   feedback?: "up" | "down" | null;
 };
 
-const SUGGESTIONS = [
+const FALLBACK_SUGGESTIONS = [
   "What docs do I need for vehicle registration?",
   "How do I get a replacement driver's licence?",
   "What are the fees for a personalized plate?",
@@ -41,8 +41,25 @@ export default function ManualsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>(FALLBACK_SUGGESTIONS);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+  async function fetchSuggestions() {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/suggestions`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.suggestions?.length >= 3) {
+        setSuggestions(data.suggestions);
+      }
+    } catch {
+      // silently fall back to hardcoded suggestions
+    }
+  }
+  fetchSuggestions();
+}, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -182,7 +199,7 @@ export default function ManualsPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-2.5 w-full max-w-[400px]">
-                {SUGGESTIONS.map((s) => (
+                {suggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => handleAsk(s)}
@@ -306,7 +323,7 @@ export default function ManualsPage() {
           {/* Suggestion chips */}
           {!isEmpty && !loading && (
             <div className="flex gap-2 flex-wrap">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => handleAsk(s)}

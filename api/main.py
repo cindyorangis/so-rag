@@ -115,6 +115,11 @@ def rerank(question: str, chunks: list[dict], top_k: int = 6) -> list[dict]:
 async def ask(body: AskRequest):
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    
+    try:
+        supabase.table("queries").insert({"question": body.question}).execute()
+    except Exception as e:
+        print(f"Query log error: {e}")
 
     try:
         # 1. Embed the question (BGE prefix for retrieval)
@@ -251,6 +256,27 @@ async def feedback(body: FeedbackRequest):
     except Exception as e:
         print(f"Feedback error: {e}")
         raise HTTPException(status_code=500, detail="Failed to save feedback")
+    
+@app.get("/suggestions")
+async def suggestions():
+    try:
+        result = supabase.table("queries") \
+            .select("question") \
+            .execute()
+
+        if not result.data:
+            return {"suggestions": []}
+
+        # Count frequency
+        from collections import Counter
+        counts = Counter(row["question"].strip().lower() for row in result.data)
+
+        # Return top 6 most common, title-cased
+        top = [q.capitalize() for q, _ in counts.most_common(6)]
+        return {"suggestions": top}
+    except Exception as e:
+        print(f"Suggestions error: {e}")
+        return {"suggestions": []}
 
 @app.get("/health")
 def health():
