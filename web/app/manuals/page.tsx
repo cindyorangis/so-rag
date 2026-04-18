@@ -55,6 +55,11 @@ export default function ManualsPage() {
 
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          throw new Error(
+            "Rate limit reached — please wait a moment and try again.",
+          );
+        }
         throw new Error(detail?.detail ?? `API error ${res.status}`);
       }
 
@@ -92,19 +97,27 @@ export default function ManualsPage() {
 
   return (
     <div className="flex flex-col h-dvh bg-[#0f1117] text-white font-sans">
-
       {/* Header */}
       <header className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.07] bg-[#0f1117] z-10">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 p-1.5 rounded-lg">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="2"
+            >
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
               <polyline points="14 2 14 8 20 8" />
             </svg>
           </div>
           <div>
             <h1 className="text-[15px] font-semibold m-0">ServiceOntario</h1>
-            <p className="text-[11px] text-white/40 m-0">Policy Intelligence Unit</p>
+            <p className="text-[11px] text-white/40 m-0">
+              Policy Intelligence Unit
+            </p>
           </div>
         </div>
 
@@ -121,13 +134,14 @@ export default function ManualsPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-6">
         <div className="w-full max-w-[760px] mx-auto flex flex-col gap-6 flex-1">
-
           {/* Empty state */}
           {isEmpty && (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-6">
               <div>
                 <h2 className="text-xl mb-2">How can I help you today?</h2>
-                <p className="text-white/50 text-sm">Search verified ServiceOntario manuals instantly.</p>
+                <p className="text-white/50 text-sm">
+                  Search verified ServiceOntario manuals instantly.
+                </p>
               </div>
               <div className="flex flex-col gap-2.5 w-full max-w-[400px]">
                 {SUGGESTIONS.map((s) => (
@@ -195,7 +209,9 @@ export default function ManualsPage() {
                   />
                 ))}
               </div>
-              <span className="text-white/40 text-xs">Searching manuals...</span>
+              <span className="text-white/40 text-xs">
+                Searching manuals...
+              </span>
             </div>
           )}
 

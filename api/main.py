@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from supabase import create_client
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from groq import Groq
+from groq import Groq, RateLimitError
 import re
 
 load_dotenv()
@@ -184,6 +184,19 @@ async def ask(body: AskRequest):
                 ))
 
         return AskResponse(answer=answer, sources=unique_sources)
+    
+    except RateLimitError as e:
+        print(f"Groq 429 Rate Limit Hit")
+        print(f"  Error: {e.message}")
+        if hasattr(e, 'response') and e.response is not None:
+            headers = e.response.headers
+            print(f"  Limit (req/min):   {headers.get('x-ratelimit-limit-requests', 'N/A')}")
+            print(f"  Remaining req:     {headers.get('x-ratelimit-remaining-requests', 'N/A')}")
+            print(f"  Limit (tok/min):   {headers.get('x-ratelimit-limit-tokens', 'N/A')}")
+            print(f"  Remaining tokens:  {headers.get('x-ratelimit-remaining-tokens', 'N/A')}")
+            print(f"  Reset (req):       {headers.get('x-ratelimit-reset-requests', 'N/A')}")
+            print(f"  Reset (tokens):    {headers.get('x-ratelimit-reset-tokens', 'N/A')}")
+        raise HTTPException(status_code=429, detail="Rate limit reached. Please wait a moment and try again.")
 
     except Exception as e:
         print(f"Error during /ask: {e}")
