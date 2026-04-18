@@ -6,6 +6,10 @@
 
 A self-hosted RAG (Retrieval-Augmented Generation) tool that lets you ask plain English questions and get answers sourced directly from ServiceOntario PDF manuals. No internet search, no hallucinated answers — only what's in the manuals, with page citations.
 
+Supports two document types:
+- **Policy manuals** — returns direct answers with citations
+- **Procedure manuals** — returns step-by-step instructions, with screenshots described automatically
+
 ---
 
 # For Developers
@@ -14,7 +18,8 @@ A self-hosted RAG (Retrieval-Augmented Generation) tool that lets you ask plain 
 
 | Layer | Tool |
 |---|---|
-| PDF Parsing | `pdfplumber` (Python) |
+| PDF Parsing | `pdfplumber` (policy docs), `pymupdf` (procedure manuals) |
+| Image Description | Ollama — `moondream` (local, free) |
 | Embeddings | `sentence-transformers` — `BAAI/bge-base-en-v1.5` (local, free) |
 | Vector Database | Supabase pgvector |
 | LLM | Groq API — Llama 3.3 70B (free tier) |
@@ -29,6 +34,7 @@ A self-hosted RAG (Retrieval-Augmented Generation) tool that lets you ask plain 
 - Node.js 18+
 - A Supabase project
 - A Groq API key (free at [console.groq.com](https://console.groq.com))
+- Ollama (for procedure manual ingestion with screenshots)
 
 ---
 
@@ -36,16 +42,18 @@ A self-hosted RAG (Retrieval-Augmented Generation) tool that lets you ask plain 
 
 ```
 serviceontario-rag/
-├── ingest/                  # Run once at home to load PDFs
-│   ├── pdfs/                # Drop PDF manuals here (gitignored)
-│   ├── ingest.py
+├── ingest/                      # Run once at home to load PDFs
+│   ├── pdfs/                    # Drop policy PDFs here (gitignored)
+│   │   └── procedures/          # Drop procedure manuals here (gitignored)
+│   ├── ingest.py                # For policy/FAQ docs
+│   ├── ingest_procedures.py     # For step-by-step procedure manuals
 │   ├── requirements.txt
 │   └── .env
-├── api/                     # FastAPI backend — deploy to Railway
+├── api/                         # FastAPI backend — deploy to Railway
 │   ├── main.py
 │   ├── requirements.txt
 │   └── .env
-├── web/                     # Next.js frontend — deploy to Vercel
+├── web/                         # Next.js frontend — deploy to Vercel
 │   ├── app/
 │   │   ├── layout.tsx
 │   │   ├── page.tsx
@@ -72,7 +80,8 @@ create table documents (
   embedding vector(768),
   source text,
   page_number int,
-  chunk_type text default 'text'
+  chunk_type text default 'text',
+  section_title text
 );
 
 create or replace function match_documents(
@@ -121,13 +130,16 @@ drop index if exists documents_embedding_idx;
 alter table documents drop column embedding;
 alter table documents add column embedding vector(768);
 alter table documents add column if not exists chunk_type text default 'text';
+alter table documents add column if not exists section_title text;
 
 create index documents_embedding_idx on documents
   using ivfflat (embedding vector_cosine_ops)
   with (lists = 100);
 ```
 
-Then re-run the ingest script from scratch.
+Then re-run the ingest scripts from scratch.
+
+---
 
 ## Step 2 — Ingest PDFs (run once, at home)
 
@@ -142,13 +154,35 @@ SUPABASE_URL=your_supabase_project_url
 SUPABASE_PUBLISHABLE_KEY=your_supabase_service_role_key
 ```
 
-Drop all ServiceOntario PDF manuals into `ingest/pdfs/`, then run:
+### Policy / FAQ docs
+
+Drop PDFs into `ingest/pdfs/`, then run:
 
 ```bash
 python ingest.py
 ```
 
-This will take a while for large PDF sets — leave it running. Each PDF is parsed page by page, chunked, embedded locally, and stored in Supabase. You only ever need to run this again if you add new manuals.
+### Procedure manuals (with screenshots)
+
+Procedure manuals like the IRP manual are chunked by section heading and have their screenshots automatically described using a local vision model.
+
+**First, install and start Ollama:**
+
+```bash
+brew install ollama
+ollama pull moondream
+ollama serve
+```
+
+Drop procedure PDFs into `ingest/pdfs/procedures/`, then in a separate terminal run:
+
+```bash
+python ingest_procedures.py
+```
+
+This will take a while for large manuals — leave it running. Ollama must be running in the background while ingest is in progress, but is not needed after that.
+
+Both scripts append to the same `documents` table in Supabase. You only ever need to re-run them if you add or update manuals.
 
 ---
 
@@ -175,7 +209,7 @@ Test it:
 ```bash
 curl -X POST http://localhost:8080/ask \
   -H "Content-Type: application/json" \
-  -d '{"question": "What documents are required for a vehicle permit?"}'
+  -d '{"question": "How do I log into PRIO?"}'
 ```
 
 ---
@@ -192,17 +226,26 @@ Create `web/.env.local`:
 NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
-Update the fetch URL in `web/app/manuals/page.tsx` to use the env variable:
-```ts
-const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ask`, { ... });
-```
-
 Start it:
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## How Procedure Mode Works
+
+When a query matches a procedure manual chunk, the API automatically switches to procedure mode:
+
+- The response is formatted as numbered steps
+- Screenshot descriptions (generated at ingest time) are included as context for the LLM
+- The `mode: "procedure"` field is returned in the API response
+- The frontend renders the answer as a step-by-step list
+- Citations include the section title and page number
+
+This detection is automatic — the same search bar handles both policy questions and procedure lookups.
 
 ---
 
@@ -229,9 +272,16 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Adding New Manuals Later
 
+For policy docs:
 1. Drop new PDFs into `ingest/pdfs/`
-2. Run `python ingest.py` again from your home machine
-3. New content is appended to Supabase — no redeployment needed
+2. Run `python ingest.py`
+
+For procedure manuals:
+1. Drop new PDFs into `ingest/pdfs/procedures/`
+2. Start Ollama: `ollama serve`
+3. Run `python ingest_procedures.py`
+
+New content is appended to Supabase — no redeployment needed.
 
 ---
 
@@ -264,13 +314,13 @@ web/node_modules/
 
 ---
 
----
-
 # For Users
 
 ## What This Tool Does
 
 This tool lets you search through ServiceOntario manuals by asking plain questions in plain English. Instead of manually searching through hundreds of PDF pages, you type your question and get a direct answer — with references to which manual and page number the answer came from.
+
+For procedure questions (like how to use PRIO or complete a specific workflow), answers are returned as step-by-step instructions.
 
 ---
 
@@ -279,16 +329,18 @@ This tool lets you search through ServiceOntario manuals by asking plain questio
 1. Open the website
 2. Type your question in the text box at the bottom — for example:
    - *"What documents do I need to register a vehicle?"*
-   - *"How do I get a replacement driver's licence?"*
+   - *"How do I log into PRIO?"*
+   - *"How do I create an IRP supplement?"*
    - *"What are the fees for a personalized plate?"*
 3. Press **Enter** or click **Ask**
-4. Your answer will appear with citations showing which manual and page it came from
+4. Your answer will appear — either as a direct answer or as numbered steps, depending on the question
+5. Citations below the answer show which manual, section, and page the answer came from
 
 ---
 
 ## Things to Know
 
-- **Answers only come from the manuals.** If something isn't covered in the uploaded manuals, the tool will tell you it couldn't find an answer rather than guessing.
+- **Answers only come from the manuals.** If something isn't covered in the uploaded manuals, the tool will say so rather than guessing.
 - **It is not connected to the internet.** It will not reflect recent policy changes unless the manuals have been updated and re-ingested.
 - **Citations are shown below each answer.** You can use the page number to find the original passage in the source PDF if you need to verify something.
 - **It is not an official ServiceOntario service.** Always confirm important information directly with ServiceOntario for anything official or time-sensitive.
@@ -302,3 +354,4 @@ This tool lets you search through ServiceOntario manuals by asking plain questio
 | "Something went wrong" error | The API server may be down — contact your administrator |
 | Answer says it couldn't find anything | Try rephrasing your question, or the topic may not be covered in the loaded manuals |
 | Answer seems outdated | The manuals may need to be updated — contact your administrator |
+| Steps are missing screenshots | Screenshots are described in text — refer to the cited page in the original PDF for visuals |
