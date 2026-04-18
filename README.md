@@ -125,6 +125,19 @@ generated always as (to_tsvector('english', content)) stored;
 create index documents_fts_idx on documents using gin (fts);
 ```
 
+Create the feedback table (no RLS required — writes go through your service_role backend):
+
+```sql
+create table feedback (
+  id bigserial primary key,
+  question text not null,
+  answer text not null,
+  rating text not null check (rating in ('up', 'down')),
+  sources jsonb,
+  created_at timestamptz default now()
+);
+```
+
 ### Supabase Storage
 
 1. Go to **Storage** → **New bucket**
@@ -255,6 +268,26 @@ This detection is automatic — the same search bar handles both policy question
 
 ---
 
+## Answer Feedback
+
+Every assistant response shows a 👍 / 👎 prompt. Ratings are written to the `feedback` table in Supabase with the full question, answer, sources, and timestamp.
+
+To review feedback and identify answers that need improvement:
+
+```sql
+-- Most recent thumbs down
+select question, created_at
+from feedback
+where rating = 'down'
+order by created_at desc
+limit 20;
+
+-- Overall rating counts
+select rating, count(*) from feedback group by rating;
+```
+
+---
+
 ## Deploying
 
 ### API → Railway
@@ -344,6 +377,7 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 4. Your answer will appear — either as a direct answer or as numbered steps, depending on the question
 5. Citations below the answer show which manual, section, and page the answer came from
 6. Click **Open** on any source card to open the original PDF directly to the cited page
+7. Use the 👍 or 👎 buttons to rate whether the answer was helpful
 
 ---
 
@@ -352,6 +386,7 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 - **Answers only come from the manuals.** If something isn't covered in the uploaded manuals, the tool will say so rather than guessing.
 - **It is not connected to the internet.** It will not reflect recent policy changes unless the manuals have been updated and re-ingested.
 - **Citations are shown below each answer.** Click **Open** to view the original page in the source PDF, including any screenshots.
+- **Your feedback helps improve the tool.** Thumbs down ratings are reviewed to identify and fix answers that need improvement.
 - **It is not an official ServiceOntario service.** Always confirm important information directly with ServiceOntario for anything official or time-sensitive.
 
 ---
