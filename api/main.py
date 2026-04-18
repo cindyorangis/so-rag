@@ -34,11 +34,13 @@ class Source(BaseModel):
     source: str
     page_number: int
     content: str
+    section_title: str | None = None
 
 
 class AskResponse(BaseModel):
     answer: str
     sources: list[Source]
+    mode: str = "answer"
 
 def clean_for_fts(question: str) -> str:
     """Strip punctuation and join keywords for Postgres tsquery."""
@@ -137,24 +139,42 @@ async def ask(body: AskRequest):
         context = "\n\n---\n\n".join(context_blocks)
 
         # 5. Ask Groq
-        system_prompt = (
-            "You are a professional ServiceOntario Support Assistant. "
-            "Your goal is to provide accurate information based ONLY on the provided manual excerpts.\n\n"
-            "FORMATTING:\n"
-            "- Always use proper markdown: **bold**, `code`, and - for bullet lists\n"
-            "- Never use • unicode bullets — use - instead\n"
-            "- Use nested lists with two spaces of indentation for sub-items\n\n"
-            "RULES:\n"
-            "1. Check ALL provided sources before answering — do not stop at the first relevant one.\n"
-            "2. If multiple manuals cover the topic, synthesize all of them in your answer.\n"
-            "3. If a source is only partially relevant, still extract what applies.\n"
-            "4. Base every claim on a provided source. If not covered, say: \"This isn't covered in the available manuals.\"\n"
-            "5. When quoting fees, form numbers, or requirements, cite the manual and page: e.g. (Vehicle Registration Manual, p. 12)\n"
-            "6. Tables contain fees and eligibility — read the column headers carefully before extracting values.\n"
-            "7. Use bullet points for multi-step processes or lists of requirements.\n"
-            "8. If multiple sources conflict, note the discrepancy and cite both.\n"
-            "9. Never invent fees, form numbers, or deadlines."
-        )
+        is_procedure = any(c.get("chunk_type") == "procedure" for c in reranked)
+
+        if is_procedure:
+            system_prompt = (
+                "You are a professional ServiceOntario Support Assistant helping an agent at a service counter. "
+                "The context contains step-by-step procedure instructions.\n\n"
+                "FORMATTING:\n"
+                "- Format your response as a numbered list of steps using 1. 2. 3. etc.\n"
+                "- Each step should be a single clear action\n"
+                "- Use **bold** for UI element names (button labels, field names, menu items)\n"
+                "- If a step has sub-steps, indent them with two spaces\n\n"
+                "RULES:\n"
+                "1. Only include steps that appear in the provided context — do not invent steps.\n"
+                "2. If screenshots are described in the context (marked [Screenshot: ...]), reference what they show if relevant.\n"
+                "3. Cite the section and page at the end: e.g. (IRP Manual, Section 3.3, p.25)\n"
+                "4. If the context doesn't cover the full procedure, say so at the end."
+            )
+        else:
+            system_prompt = (
+                "You are a professional ServiceOntario Support Assistant. "
+                "Your goal is to provide accurate information based ONLY on the provided manual excerpts.\n\n"
+                "FORMATTING:\n"
+                "- Always use proper markdown: **bold**, `code`, and - for bullet lists\n"
+                "- Never use • unicode bullets — use - instead\n"
+                "- Use nested lists with two spaces of indentation for sub-items\n\n"
+                "RULES:\n"
+                "1. Check ALL provided sources before answering — do not stop at the first relevant one.\n"
+                "2. If multiple manuals cover the topic, synthesize all of them in your answer.\n"
+                "3. If a source is only partially relevant, still extract what applies.\n"
+                "4. Base every claim on a provided source. If not covered, say: \"This isn't covered in the available manuals.\"\n"
+                "5. When quoting fees, form numbers, or requirements, cite the manual and page: e.g. (Vehicle Registration Manual, p. 12)\n"
+                "6. Tables contain fees and eligibility — read the column headers carefully before extracting values.\n"
+                "7. Use bullet points for multi-step processes or lists of requirements.\n"
+                "8. If multiple sources conflict, note the discrepancy and cite both.\n"
+                "9. Never invent fees, form numbers, or deadlines."
+            )
 
         user_prompt = f"CONTEXT:\n{context}\n\nQUESTION: {body.question}"
 
@@ -180,10 +200,17 @@ async def ask(body: AskRequest):
                 unique_sources.append(Source(
                     source=c["source"],
                     page_number=c["page_number"],
-                    content=c["content"]
+                    content=c["content"],
+                    section_title=c.get("section_title")
                 ))
 
-        return AskResponse(answer=answer, sources=unique_sources)
+        is_procedure = any(c.get("chunk_type") == "procedure" for c in reranked)
+
+        return AskResponse(
+            answer=answer,
+            sources=unique_sources,
+            mode="procedure" if is_procedure else "answer"
+        )
     
     except RateLimitError as e:
         print(f"Groq 429 Rate Limit Hit")

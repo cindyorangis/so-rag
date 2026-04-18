@@ -6,11 +6,17 @@ import remarkGfm from "remark-gfm";
 import { SourceCard } from "@/components/SourceCard";
 import "./manuals.css";
 
-type Source = { source: string; page_number: number; content: string };
+type Source = {
+  source: string;
+  page_number: number;
+  content: string;
+  section_title?: string;
+};
 type Message = {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  mode?: "answer" | "procedure";
   error?: boolean;
 };
 
@@ -70,6 +76,7 @@ export default function ManualsPage() {
           role: "assistant",
           content: normalizeBullets(data.answer),
           sources: data.sources,
+          mode: data.mode,
         },
       ]);
     } catch (err: any) {
