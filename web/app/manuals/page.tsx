@@ -11,7 +11,9 @@ type Source = {
   page_number: number;
   content: string;
   section_title?: string;
+  pdf_url?: string;
 };
+
 type Message = {
   role: "user" | "assistant";
   content: string;

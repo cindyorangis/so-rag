@@ -1,7 +1,6 @@
 import os
 import fitz  # pymupdf
 import ollama
-import base64
 from sentence_transformers import SentenceTransformer
 from supabase import create_client
 from dotenv import load_dotenv
@@ -10,6 +9,7 @@ import re
 load_dotenv()
 
 supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_PUBLISHABLE_KEY"])
+storage_base = os.environ.get("SUPABASE_STORAGE_URL", "")
 model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 ollama = ollama.Client()
 
@@ -96,6 +96,7 @@ def ingest_procedure_pdf(pdf_path: str):
             "page_number": section["start_page"],
             "section_title": section["title"],
             "chunk_type": "procedure",
+            "pdf_url": f"{storage_base}/{filename}" if storage_base else None,
         }).execute()
 
     print(f"  Inserted {len(sections)} chunks")

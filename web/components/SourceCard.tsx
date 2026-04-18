@@ -7,7 +7,13 @@ import remarkGfm from "remark-gfm";
 export function SourceCard({
   source,
 }: {
-  source: { source: string; page_number: number; content: string };
+  source: {
+    source: string;
+    page_number: number;
+    content: string;
+    section_title?: string;
+    pdf_url?: string;
+  };
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -54,6 +60,30 @@ export function SourceCard({
           <span className="shrink-0 bg-blue-500/20 text-blue-400 rounded px-1.5 py-px text-[10px] font-semibold tracking-wide">
             p.{source.page_number}
           </span>
+
+          {source.pdf_url && (
+            <a
+              href={`${source.pdf_url}#page=${source.page_number}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 flex items-center gap-1 text-[10px] text-white/40 hover:text-blue-400 transition-colors"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              Open
+            </a>
+          )}
         </div>
 
         <svg

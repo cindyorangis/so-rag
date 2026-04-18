@@ -24,18 +24,16 @@ groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 embedder = SentenceTransformer("BAAI/bge-base-en-v1.5")
 reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
-
 class AskRequest(BaseModel):
     question: str
     match_count: int = 12  # wider pool for reranker to work with
-
 
 class Source(BaseModel):
     source: str
     page_number: int
     content: str
     section_title: str | None = None
-
+    pdf_url: str | None = None
 
 class AskResponse(BaseModel):
     answer: str
@@ -65,7 +63,7 @@ async def hybrid_search(question: str, query_embedding: list, match_count: int):
     fts_query = clean_for_fts(question)
     if fts_query:
         keyword = supabase.table("documents") \
-            .select("id, content, source, page_number") \
+            .select("id, content, source, page_number, chunk_type, section_title, pdf_url") \
             .text_search("fts", fts_query, options={"limit": match_count}) \
             .execute().data
 
@@ -201,7 +199,8 @@ async def ask(body: AskRequest):
                     source=c["source"],
                     page_number=c["page_number"],
                     content=c["content"],
-                    section_title=c.get("section_title")
+                    section_title=c.get("section_title"),
+                    pdf_url=c.get("pdf_url"),
                 ))
 
         is_procedure = any(c.get("chunk_type") == "procedure" for c in reranked)
