@@ -32,7 +32,7 @@ function normalizeBullets(text: string): string {
   return text
     .replace(/•\s*/g, "- ")
     .replace(/·\s*/g, "- ")
-    .replace(/\*\s+/g, "- ");
+    .replace(/^\*\s+/gm, "- ");
 }
 
 export default function ManualsPage() {
