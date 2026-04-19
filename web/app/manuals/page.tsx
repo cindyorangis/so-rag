@@ -65,8 +65,9 @@ export default function ManualsPage() {
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         if (res.status === 429) {
+          const detail = await res.json().catch(() => ({}));
           throw new Error(
-            "Rate limit reached — please wait a moment and try again.",
+            detail?.detail ?? "Rate limit reached — please try again shortly.",
           );
         }
         throw new Error(detail?.detail ?? `API error ${res.status}`);

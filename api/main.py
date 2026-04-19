@@ -232,17 +232,21 @@ async def ask(body: AskRequest):
         )
     
     except RateLimitError as e:
-        print(f"Groq 429 Rate Limit Hit")
-        print(f"  Error: {e.message}")
+        wait_msg = "Please wait a moment and try again."
         if hasattr(e, 'response') and e.response is not None:
             headers = e.response.headers
-            print(f"  Limit (req/min):   {headers.get('x-ratelimit-limit-requests', 'N/A')}")
-            print(f"  Remaining req:     {headers.get('x-ratelimit-remaining-requests', 'N/A')}")
-            print(f"  Limit (tok/min):   {headers.get('x-ratelimit-limit-tokens', 'N/A')}")
-            print(f"  Remaining tokens:  {headers.get('x-ratelimit-remaining-tokens', 'N/A')}")
-            print(f"  Reset (req):       {headers.get('x-ratelimit-reset-requests', 'N/A')}")
-            print(f"  Reset (tokens):    {headers.get('x-ratelimit-reset-tokens', 'N/A')}")
-        raise HTTPException(status_code=429, detail="Rate limit reached. Please wait a moment and try again.")
+            reset = headers.get('x-ratelimit-reset-requests', '')
+            # reset comes back as "2s", "47s", "1m30s" etc.
+            if reset:
+                wait_msg = f"Please try again in {reset}."
+        
+        # Full details stay server-side only
+        print(f"Groq 429 — reset in {reset or 'unknown'}")
+        
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests. {wait_msg}"
+        )
 
     except Exception as e:
         print(f"Error during /ask: {e}")
