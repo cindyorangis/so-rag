@@ -23,7 +23,7 @@ Supports two document types:
 | Embeddings | `sentence-transformers` — `BAAI/bge-base-en-v1.5` (local, free) |
 | Vector Database | Supabase pgvector |
 | PDF Storage | Supabase Storage |
-| LLM | Groq API — Llama 3.3 70B (free tier) |
+| LLM | Groq API — Llama 3.3 70B (primary), with automatic fallback to Llama 3.1 8B and Gemma 2 9B |
 | Backend | FastAPI (Python) |
 | Frontend | Next.js + Tailwind CSS |
 
@@ -62,6 +62,7 @@ serviceontario-rag/
 │   │       └── page.tsx
 │   ├── components/
 │   │   ├── ChatMessage.tsx
+│   │   ├── ModelPicker.tsx
 │   │   └── SourceCard.tsx
 │   ├── types/
 │   │   └── manuals.ts
@@ -137,12 +138,14 @@ create table feedback (
   answer text not null,
   rating text not null check (rating in ('up', 'down')),
   sources jsonb,
+  model_used text,
   created_at timestamptz default now()
 );
 
 create table queries (
   id bigserial primary key,
   question text not null,
+  model_used text,
   created_at timestamptz default now()
 );
 ```
@@ -160,6 +163,18 @@ returns table(question text) language sql stable as $$
 $$;
 ```
 
+### If migrating from an existing setup
+
+```sql
+alter table documents add column if not exists chunk_type text default 'text';
+alter table documents add column if not exists section_title text;
+alter table documents add column if not exists pdf_url text;
+alter table feedback add column if not exists model_used text;
+alter table queries add column if not exists model_used text;
+```
+
+Then replace the `match_documents` function using the definition above and re-run the ingest scripts.
+
 ### Supabase Storage
 
 1. Go to **Storage** → **New bucket**
@@ -167,15 +182,28 @@ $$;
 3. Set it to **Public**
 4. Upload all your procedure PDFs (same files you ingested)
 
-### If migrating from an existing setup
+### Vector Index
+
+The current setup uses `ivfflat` with `lists = 100`, which is well-suited for datasets up to ~200k rows. At your current scale this requires no tuning.
+
+When to consider switching to `hnsw` (better recall at scale):
 
 ```sql
-alter table documents add column if not exists chunk_type text default 'text';
-alter table documents add column if not exists section_title text;
-alter table documents add column if not exists pdf_url text;
+-- Check your current row count
+select count(*) from documents;
 ```
 
-Then replace the `match_documents` function using the definition above and re-run the ingest scripts.
+If you exceed ~200k rows and notice slower queries or thinner results, switch with:
+
+```sql
+drop index if exists documents_embedding_idx;
+
+create index documents_embedding_hnsw_idx on documents
+  using hnsw (embedding vector_cosine_ops)
+  with (m = 16, ef_construction = 64);
+```
+
+This runs online — no downtime required.
 
 ---
 
@@ -189,7 +217,7 @@ pip install -r requirements.txt
 Create `ingest/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 SUPABASE_STORAGE_URL=https://your-project-ref.supabase.co/storage/v1/object/public/manuals
 ```
 
@@ -225,7 +253,7 @@ Drop procedure PDFs into `ingest/pdfs/procedures/`, then in a separate terminal 
 python ingest_procedures.py
 ```
 
-This will take a while for large manuals — leave it running. Ollama must be running in the background during ingest, but is not needed after that.
+The script will verify Ollama is running before starting and print progress per page and image. This will take a while for large manuals — leave it running.
 
 Both scripts append to the same `documents` table in Supabase. You only need to re-run them if you add or update manuals.
 
@@ -241,9 +269,9 @@ pip install -r requirements.txt
 Create `api/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 GROQ_API_KEY=your_groq_api_key
-ALLOWED_ORIGINS=http://localhost:3000,https://your_production.url
+ALLOWED_ORIGINS=http://localhost:3000,https://your-production-url
 ```
 
 Start the server:
@@ -289,21 +317,37 @@ When a query matches a procedure manual chunk, the API automatically switches to
 - Screenshot descriptions (generated at ingest time) are included as context for the LLM
 - The `mode: "procedure"` field is returned in the API response
 - Citations include the section title and page number
-- An **Open** link appears on each source card — clicking it opens the PDF directly to the cited page in a new tab
+- An **Open** link appears on each reference card — clicking it opens the PDF directly to the cited page in a new tab
 
 This detection is automatic — the same search bar handles both policy questions and procedure lookups.
 
 ---
 
+## Model Selection & Fallback
+
+Users can select which LLM to use from the model picker above the input bar. The available models are:
+
+| Model | Best for |
+|---|---|
+| Llama 3.3 70B | Complex policy questions, multi-source synthesis |
+| Llama 3.1 8B | Simple lookups, faster responses |
+| Gemma 2 9B | Fallback when other models are rate limited |
+
+The `/models` endpoint probes each model's rate limit status and returns availability and reset time. The model picker polls this every 30 seconds and shows a countdown when a model is unavailable.
+
+If the user's selected model is rate limited, the API automatically falls back through the model chain and logs which model was actually used. All queries and feedback records include a `model_used` field for tracking.
+
+---
+
 ## Answer Feedback
 
-Every assistant response shows a Yes / No prompt. Ratings are written to the `feedback` table in Supabase with the full question, answer, sources, and timestamp.
+Every assistant response shows a Yes / No prompt. Ratings are written to the `feedback` table in Supabase with the full question, answer, sources, model used, and timestamp.
 
 To review feedback and identify answers that need improvement:
 
 ```sql
 -- Most recent thumbs down
-select question, created_at
+select question, model_used, created_at
 from feedback
 where rating = 'down'
 order by created_at desc
@@ -311,6 +355,11 @@ limit 20;
 
 -- Overall rating counts
 select rating, count(*) from feedback group by rating;
+
+-- Thumbs down by model — useful for quality comparison
+select model_used, count(*) from feedback
+where rating = 'down'
+group by model_used;
 ```
 
 ---
@@ -365,10 +414,10 @@ New content is appended to Supabase — no redeployment needed.
 | File | Variable | Where to get it |
 |---|---|---|
 | `ingest/.env` | `SUPABASE_URL` | Supabase → Project Settings → API |
-| `ingest/.env` | `SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API → service_role |
+| `ingest/.env` | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → service_role |
 | `ingest/.env` | `SUPABASE_STORAGE_URL` | Supabase → Storage → manuals bucket → any file URL, trimmed to `/manuals` |
 | `api/.env` | `SUPABASE_URL` | Same as above |
-| `api/.env` | `SUPABASE_PUBLISHABLE_KEY` | Same as above |
+| `api/.env` | `SUPABASE_SERVICE_ROLE_KEY` | Same as above |
 | `api/.env` | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
 | `api/.env` | `ALLOWED_ORIGINS` | Comma-separated list of allowed frontend URLs |
 | `web/.env.local` | `NEXT_PUBLIC_API_URL` | Your Railway deployment URL (or `http://localhost:8080` locally) |
@@ -399,10 +448,17 @@ Run these periodically in the Supabase SQL Editor to keep the data clean and use
 
 ```sql
 -- Questions that got thumbs down — investigate and improve retrieval or prompts
-select question, created_at
+select question, model_used, created_at
 from feedback
 where rating = 'down'
 order by created_at desc;
+```
+
+### Monthly — review model usage
+
+```sql
+-- See which model gets used most
+select model_used, count(*) from queries group by model_used order by count desc;
 ```
 
 ### Monthly — clean up test queries from suggestions
@@ -410,7 +466,6 @@ order by created_at desc;
 Queries logged during development will pollute the suggestions. Remove them before going live and periodically after:
 
 ```sql
--- Remove obvious test entries
 delete from queries
 where question ilike '%test%'
    or question ilike '%hello%'
@@ -464,16 +519,29 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 ## How to Use It
 
 1. Open the website
-2. Type your question in the text box at the bottom — for example:
+2. Select a model above the input bar based on your question's complexity
+3. Type your question in the text box — for example:
    - *"What documents do I need to register a vehicle?"*
    - *"How do I log into PRIO?"*
    - *"How do I create an IRP supplement?"*
    - *"What are the fees for a personalized plate?"*
-3. Press **Enter** or click **Ask**
-4. Your answer will appear — either as a direct answer or as numbered steps, depending on the question
-5. References below the answer show which manual, section, and page the answer came from
-6. Click **Open** on any reference card to open the original PDF directly to the cited page
-7. Use the **Yes** / **No** buttons to rate whether the answer was helpful
+4. Press **Enter** or click **Ask**
+5. Your answer will appear — either as a direct answer or as numbered steps, depending on the question
+6. References below the answer show which manual, section, and page the answer came from
+7. Click **Open** on any reference card to open the original PDF directly to the cited page
+8. Use the **Yes** / **No** buttons to rate whether the answer was helpful
+
+---
+
+## Choosing a Model
+
+| Model | Use when |
+|---|---|
+| **Llama 3.3 70B** | Your question involves multiple policies, fees, or cross-manual topics |
+| **Llama 3.1 8B** | You need a quick answer to a simple, direct question |
+| **Gemma 2 9B** | The other models show as unavailable |
+
+If a model is rate limited, it will show a countdown until it's available again. The API will also automatically fall back to the next available model if needed.
 
 ---
 
@@ -492,6 +560,7 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 | Problem | What to do |
 |---|---|
 | "Something went wrong" error | The API server may be down — contact your administrator |
+| "All models are currently rate limited" | Wait the displayed time and try again, or try a different model |
 | Answer says it couldn't find anything | Try rephrasing your question, or the topic may not be covered in the loaded manuals |
 | Answer seems outdated | The manuals may need to be updated — contact your administrator |
 | Open link not appearing on a reference | That document may not be uploaded to Supabase Storage yet — contact your administrator |
