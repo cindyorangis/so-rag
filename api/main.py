@@ -169,6 +169,7 @@ async def ask(body: AskRequest):
             answer=answer,
             sources=unique_sources,
             mode="procedure" if is_procedure else "answer",
+            model_used=used_model,
         )
 
     except HTTPException:

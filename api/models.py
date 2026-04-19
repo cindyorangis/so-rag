@@ -19,6 +19,7 @@ class AskResponse(BaseModel):
     answer: str
     sources: list[Source]
     mode: str = "answer"
+    model_used: str | None = None
 
 
 class FeedbackRequest(BaseModel):
