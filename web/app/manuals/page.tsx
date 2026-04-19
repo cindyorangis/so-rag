@@ -250,7 +250,7 @@ export default function ManualsPage() {
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleAsk()}
             placeholder="Ask about ServiceOntario policies..."
             disabled={loading}
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none text-sm placeholder:text-white/30 disabled:opacity-60 focus:border-white/20 transition-colors"
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none text-base placeholder:text-white/30 disabled:opacity-60 focus:border-white/20 transition-colors"
           />
           <button
             onClick={() => handleAsk()}
