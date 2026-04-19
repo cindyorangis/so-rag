@@ -222,7 +222,7 @@ pip install -r requirements.txt
 Create `ingest/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 SUPABASE_STORAGE_URL=https://your-project-ref.supabase.co/storage/v1/object/public/manuals
 ```
 
@@ -274,7 +274,7 @@ pip install -r requirements.txt
 Create `api/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 GROQ_API_KEY=your_groq_api_key
 ALLOWED_ORIGINS=http://localhost:3000,https://your-production-url
 ```
@@ -462,10 +462,10 @@ New content is appended to Supabase — no redeployment needed.
 | File | Variable | Where to get it |
 |---|---|---|
 | `ingest/.env` | `SUPABASE_URL` | Supabase → Project Settings → API |
-| `ingest/.env` | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → service_role |
+| `ingest/.env` | `SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API → service_role |
 | `ingest/.env` | `SUPABASE_STORAGE_URL` | Supabase → Storage → manuals bucket → any file URL, trimmed to `/manuals` |
 | `api/.env` | `SUPABASE_URL` | Same as above |
-| `api/.env` | `SUPABASE_SERVICE_ROLE_KEY` | Same as above |
+| `api/.env` | `SUPABASE_PUBLISHABLE_KEY` | Same as above |
 | `api/.env` | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
 | `api/.env` | `ALLOWED_ORIGINS` | Comma-separated list of allowed frontend URLs |
 | `web/.env.local` | `NEXT_PUBLIC_API_URL` | Your Railway deployment URL (or `http://localhost:8080` locally) |
