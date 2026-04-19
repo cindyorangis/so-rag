@@ -61,7 +61,10 @@ serviceontario-rag/
 │   │   └── manuals/
 │   │       └── page.tsx
 │   ├── components/
+│   │   ├── ChatMessage.tsx
 │   │   └── SourceCard.tsx
+│   ├── types/
+│   │   └── manuals.ts
 │   ├── package.json
 │   └── .env.local
 ├── .gitignore
@@ -116,7 +119,7 @@ create index on documents
   with (lists = 100);
 ```
 
-Run this in Supabase SQL Editor to speed up keyword searches:
+Run this to speed up keyword searches:
 
 ```sql
 alter table documents add column fts tsvector
@@ -142,6 +145,19 @@ create table queries (
   question text not null,
   created_at timestamptz default now()
 );
+```
+
+Create the suggestions function (moves aggregation to SQL instead of fetching all rows into Python):
+
+```sql
+create or replace function top_suggestions(lim int default 6)
+returns table(question text) language sql stable as $$
+  select lower(trim(question)) as question
+  from queries
+  group by lower(trim(question))
+  order by count(*) desc
+  limit lim;
+$$;
 ```
 
 ### Supabase Storage
@@ -173,11 +189,13 @@ pip install -r requirements.txt
 Create `ingest/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_PUBLISHABLE_KEY=your_supabase_service_role_key
+SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 SUPABASE_STORAGE_URL=https://your-project-ref.supabase.co/storage/v1/object/public/manuals
 ```
 
 Your `SUPABASE_STORAGE_URL` is found in Supabase → Storage → select the `manuals` bucket → click any file → copy the URL up to and including `/manuals`.
+
+> **Note:** The service role key bypasses Row Level Security. Never expose it in the browser or commit it to version control.
 
 ### Policy / FAQ docs
 
@@ -187,9 +205,11 @@ Drop PDFs into `ingest/pdfs/`, then run:
 python ingest.py
 ```
 
+Both scripts skip files already present in the database — safe to re-run if interrupted.
+
 ### Procedure manuals (with screenshots)
 
-Procedure manuals like the IRP manual are chunked by section heading and have their screenshots automatically described using a local vision model. A public URL is stored with each chunk so agents can open the source PDF directly to the cited page.
+Procedure manuals like the IRP manual are chunked by section heading and have their screenshots automatically described using a local vision model. A public URL is stored with each chunk so users can open the source PDF directly to the cited page.
 
 **First, install and start Ollama:**
 
@@ -207,7 +227,7 @@ python ingest_procedures.py
 
 This will take a while for large manuals — leave it running. Ollama must be running in the background during ingest, but is not needed after that.
 
-Both scripts append to the same `documents` table in Supabase. You only ever need to re-run them if you add or update manuals.
+Both scripts append to the same `documents` table in Supabase. You only need to re-run them if you add or update manuals.
 
 ---
 
@@ -221,8 +241,9 @@ pip install -r requirements.txt
 Create `api/.env`:
 ```
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_PUBLISHABLE_KEY=your_supabase_service_role_key
+SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 GROQ_API_KEY=your_groq_api_key
+ALLOWED_ORIGINS=http://localhost:3000,https://your_production.url
 ```
 
 Start the server:
@@ -276,7 +297,7 @@ This detection is automatic — the same search bar handles both policy question
 
 ## Answer Feedback
 
-Every assistant response shows a 👍 / 👎 prompt. Ratings are written to the `feedback` table in Supabase with the full question, answer, sources, and timestamp.
+Every assistant response shows a Yes / No prompt. Ratings are written to the `feedback` table in Supabase with the full question, answer, sources, and timestamp.
 
 To review feedback and identify answers that need improvement:
 
@@ -296,7 +317,7 @@ select rating, count(*) from feedback group by rating;
 
 ## Query Suggestions
 
-Every question asked is logged to the `queries` table. The `/suggestions` endpoint counts frequency and returns the top 6 most common questions, which the frontend displays as suggestion chips instead of the hardcoded fallbacks.
+Every question asked is logged to the `queries` table. The `/suggestions` endpoint calls the `top_suggestions` SQL function to return the top 6 most common questions, which the frontend displays as suggestion chips.
 
 Fallback suggestions are shown on fresh deploys until enough real queries have been logged.
 
@@ -349,6 +370,7 @@ New content is appended to Supabase — no redeployment needed.
 | `api/.env` | `SUPABASE_URL` | Same as above |
 | `api/.env` | `SUPABASE_PUBLISHABLE_KEY` | Same as above |
 | `api/.env` | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) |
+| `api/.env` | `ALLOWED_ORIGINS` | Comma-separated list of allowed frontend URLs |
 | `web/.env.local` | `NEXT_PUBLIC_API_URL` | Your Railway deployment URL (or `http://localhost:8080` locally) |
 
 ---
@@ -418,7 +440,7 @@ where created_at < now() - interval '90 days';
 
 ### When manuals are updated
 
-1. Truncate the documents for that source only:
+1. Delete documents for that source only:
 ```sql
 delete from documents where source = 'IRP-Procedure-Manual-2025-Revision-A.pdf';
 ```
@@ -449,9 +471,9 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
    - *"What are the fees for a personalized plate?"*
 3. Press **Enter** or click **Ask**
 4. Your answer will appear — either as a direct answer or as numbered steps, depending on the question
-5. Citations below the answer show which manual, section, and page the answer came from
-6. Click **Open** on any source card to open the original PDF directly to the cited page
-7. Use the 👍 or 👎 buttons to rate whether the answer was helpful
+5. References below the answer show which manual, section, and page the answer came from
+6. Click **Open** on any reference card to open the original PDF directly to the cited page
+7. Use the **Yes** / **No** buttons to rate whether the answer was helpful
 
 ---
 
@@ -459,8 +481,8 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 
 - **Answers only come from the manuals.** If something isn't covered in the uploaded manuals, the tool will say so rather than guessing.
 - **It is not connected to the internet.** It will not reflect recent policy changes unless the manuals have been updated and re-ingested.
-- **Citations are shown below each answer.** Click **Open** to view the original page in the source PDF, including any screenshots.
-- **Your feedback helps improve the tool.** Thumbs down ratings are reviewed to identify and fix answers that need improvement.
+- **References are shown below each answer.** Click **Open** to view the original page in the source PDF, including any screenshots.
+- **Your feedback helps improve the tool.** Negative ratings are reviewed to identify and fix answers that need improvement.
 - **It is not an official ServiceOntario service.** Always confirm important information directly with ServiceOntario for anything official or time-sensitive.
 
 ---
@@ -472,5 +494,5 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 | "Something went wrong" error | The API server may be down — contact your administrator |
 | Answer says it couldn't find anything | Try rephrasing your question, or the topic may not be covered in the loaded manuals |
 | Answer seems outdated | The manuals may need to be updated — contact your administrator |
-| Open link not appearing on a source | That document may not be uploaded to Supabase Storage yet — contact your administrator |
+| Open link not appearing on a reference | That document may not be uploaded to Supabase Storage yet — contact your administrator |
 | Open link opens to wrong page | PDF page numbering may differ from manual page numbering — navigate manually from the cited page number |
