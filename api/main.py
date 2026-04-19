@@ -48,6 +48,14 @@ class FeedbackRequest(BaseModel):
     rating: str  # "up" or "down"
     sources: list[dict] = []
 
+def sanitize_question(q: str) -> str:
+    q = q.strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    if len(q) > 500:
+        raise HTTPException(status_code=400, detail="Question is too long (max 500 characters).")
+    return q
+
 def clean_for_fts(question: str) -> str:
     """Strip punctuation and join keywords for Postgres tsquery."""
     # Remove punctuation, lowercase, split into words
@@ -115,22 +123,21 @@ def rerank(question: str, chunks: list[dict], top_k: int = 6) -> list[dict]:
 
 @app.post("/ask", response_model=AskResponse)
 async def ask(body: AskRequest):
-    if not body.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    question = sanitize_question(body.question)
     
     try:
-        supabase.table("queries").insert({"question": body.question}).execute()
+        supabase.table("queries").insert({"question": question}).execute()
     except Exception as e:
         print(f"Query log error: {e}")
 
     try:
         # 1. Embed the question (BGE prefix for retrieval)
         query_embedding = embedder.encode(
-            f"Represent this sentence for searching relevant passages: {body.question}"
+            f"Represent this sentence for searching relevant passages: {question}"
         ).tolist()
 
         # 2. Hybrid search — semantic + keyword, deduplicated
-        candidates = await hybrid_search(body.question, query_embedding, body.match_count)
+        candidates = await hybrid_search(question, query_embedding, body.match_count)
 
         if not candidates:
             return AskResponse(
@@ -139,7 +146,7 @@ async def ask(body: AskRequest):
             )
 
         # 3. Rerank candidates, keep top 6 for the LLM
-        reranked = rerank(body.question, candidates, top_k=8)
+        reranked = rerank(question, candidates, top_k=8)
 
         # 4. Build context from reranked chunks
         context_blocks = []
@@ -189,7 +196,7 @@ async def ask(body: AskRequest):
                 "9. Never invent fees, form numbers, or deadlines."
             )
 
-        user_prompt = f"CONTEXT:\n{context}\n\nQUESTION: {body.question}"
+        user_prompt = f"CONTEXT:\n{context}\n\nQUESTION: {question}"
 
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -247,7 +254,7 @@ async def feedback(body: FeedbackRequest):
         raise HTTPException(status_code=400, detail="Rating must be 'up' or 'down'")
     try:
         supabase.table("feedback").insert({
-            "question": body.question,
+            "question": sanitize_question(body.question),
             "answer": body.answer,
             "rating": body.rating,
             "sources": body.sources,
