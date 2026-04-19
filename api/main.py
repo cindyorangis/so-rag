@@ -69,6 +69,7 @@ class FeedbackRequest(BaseModel):
     answer: str
     rating: str  # "up" or "down"
     sources: list[dict] = []
+    model_used: str | None = None
 
 def sanitize_question(q: str) -> str:
     q = q.strip()
@@ -191,7 +192,10 @@ async def ask(body: AskRequest):
     question = sanitize_question(body.question)
  
     try:
-        supabase.table("queries").insert({"question": question}).execute()
+        supabase.table("queries").insert({
+            "question": question,
+            "model_used": body.model_id or "llama-3.3-70b-versatile",
+        }).execute()
     except Exception as e:
         print(f"Query log error: {e}")
  
@@ -343,10 +347,11 @@ async def feedback(body: FeedbackRequest):
         raise HTTPException(status_code=400, detail="Rating must be 'up' or 'down'")
     try:
         supabase.table("feedback").insert({
-            "question": sanitize_question(body.question),
+            "question": body.question,
             "answer": body.answer,
             "rating": body.rating,
             "sources": body.sources,
+            "model_used": body.model_used,
         }).execute()
         return {"ok": True}
     except Exception as e:

@@ -84,6 +84,7 @@ export default function ManualsPage() {
           sources: data.sources,
           mode: data.mode,
           question: q,
+          model_used: selectedModel,
           feedback: null,
         },
       ]);
@@ -119,6 +120,7 @@ export default function ManualsPage() {
           answer: msg.content,
           rating,
           sources: msg.sources ?? [],
+          model_used: msg.model_used ?? null,
         }),
       });
     } catch (err) {

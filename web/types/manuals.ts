@@ -14,4 +14,5 @@ export type Message = {
   error?: boolean;
   question?: string;
   feedback?: "up" | "down" | null;
+  model_used?: string | null;
 };
