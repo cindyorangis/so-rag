@@ -1,28 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { SourceCard } from "@/components/SourceCard";
+import { ChatMessage } from "@/components/ChatMessage";
+import type { Message } from "@/types/manuals";
 import "./manuals.css";
-
-type Source = {
-  source: string;
-  page_number: number;
-  content: string;
-  section_title?: string;
-  pdf_url?: string;
-};
-
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-  sources?: Source[];
-  mode?: "answer" | "procedure";
-  error?: boolean;
-  question?: string;
-  feedback?: "up" | "down" | null;
-};
 
 const FALLBACK_SUGGESTIONS = [
   "What docs do I need for vehicle registration?",
@@ -41,25 +22,26 @@ export default function ManualsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>(FALLBACK_SUGGESTIONS);
+  const [suggestions, setSuggestions] =
+    useState<string[]>(FALLBACK_SUGGESTIONS);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-  async function fetchSuggestions() {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/suggestions`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.suggestions?.length >= 3) {
-        setSuggestions(data.suggestions);
+    async function fetchSuggestions() {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/suggestions`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.suggestions?.length >= 3) setSuggestions(data.suggestions);
+      } catch {
+        // fall back to hardcoded
       }
-    } catch {
-      // silently fall back to hardcoded suggestions
     }
-  }
-  fetchSuggestions();
-}, []);
+    fetchSuggestions();
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -103,7 +85,6 @@ export default function ManualsPage() {
         },
       ]);
     } catch (err: any) {
-      console.error("Ask error:", err);
       setMessages((prev) => [
         ...prev,
         {
@@ -118,16 +99,10 @@ export default function ManualsPage() {
     }
   }
 
-  function handleClear() {
-    setMessages([]);
-    setInput("");
-  }
-
   async function handleFeedback(msgIndex: number, rating: "up" | "down") {
     const msg = messages[msgIndex];
-    if (!msg || msg.feedback) return; // already rated
+    if (!msg || msg.feedback) return;
 
-    // Optimistically update UI
     setMessages((prev) =>
       prev.map((m, i) => (i === msgIndex ? { ...m, feedback: rating } : m)),
     );
@@ -178,7 +153,10 @@ export default function ManualsPage() {
 
         {!isEmpty && (
           <button
-            onClick={handleClear}
+            onClick={() => {
+              setMessages([]);
+              setInput("");
+            }}
             className="bg-white/5 border border-white/10 rounded-lg text-white/50 text-xs px-3 py-1.5 cursor-pointer hover:text-white/70 transition-colors"
           >
             Clear
@@ -214,89 +192,12 @@ export default function ManualsPage() {
 
           {/* Message thread */}
           {messages.map((msg, i) => (
-            <div
+            <ChatMessage
               key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[90%] px-4 py-3 border ${
-                  msg.role === "user"
-                    ? "rounded-[18px_18px_4px_18px] bg-blue-600 border-white/[0.08]"
-                    : msg.error
-                      ? "rounded-[18px_18px_18px_4px] bg-red-500/10 border-red-500/30"
-                      : "rounded-[18px_18px_18px_4px] bg-white/5 border-white/[0.08]"
-                }`}
-              >
-                <div className="markdown-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
-
-                {msg.role === "assistant" && !msg.error && (
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className="text-[10px] text-white/30">Helpful?</span>
-                    <button
-                      onClick={() => handleFeedback(i, "up")}
-                      disabled={!!msg.feedback}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] transition-colors ${
-                        msg.feedback === "up"
-                          ? "border-green-500/50 text-green-400 bg-green-500/10"
-                          : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
-                      } disabled:cursor-default`}
-                    >
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill={msg.feedback === "up" ? "currentColor" : "none"}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" />
-                        <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" />
-                      </svg>
-                      Yes
-                    </button>
-                    <button
-                      onClick={() => handleFeedback(i, "down")}
-                      disabled={!!msg.feedback}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] transition-colors ${
-                        msg.feedback === "down"
-                          ? "border-red-500/50 text-red-400 bg-red-500/10"
-                          : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
-                      } disabled:cursor-default`}
-                    >
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill={msg.feedback === "down" ? "currentColor" : "none"}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z" />
-                        <path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17" />
-                      </svg>
-                      No
-                    </button>
-                  </div>
-                )}
-
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-white/10">
-                    <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider">
-                      Sources
-                    </span>
-                    <div className="mt-2 flex flex-col gap-1.5">
-                      {msg.sources.map((s, j) => (
-                        <SourceCard key={j} source={s} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+              msg={msg}
+              index={i}
+              onFeedback={handleFeedback}
+            />
           ))}
 
           {/* Loading indicator */}
@@ -320,14 +221,14 @@ export default function ManualsPage() {
             </div>
           )}
 
-          {/* Suggestion chips */}
+          {/* Follow-up suggestion chips */}
           {!isEmpty && !loading && (
             <div className="flex gap-2 flex-wrap">
               {suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => handleAsk(s)}
-                  className="px-3 py-1.5 bg-white/[0.03] border border-white/10 rounded-full text-white/50 cursor-pointer text-xs whitespace-nowrap hover:text-white/70 transition-colors"
+                  className="px-3 py-1.5 bg-white/[0.03] border border-white/10 rounded-full text-white/60 cursor-pointer text-xs whitespace-nowrap hover:text-white/80 hover:border-white/20 transition-colors"
                 >
                   {s}
                 </button>

@@ -3,18 +3,9 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { Source } from "@/types/manuals";
 
-export function SourceCard({
-  source,
-}: {
-  source: {
-    source: string;
-    page_number: number;
-    content: string;
-    section_title?: string;
-    pdf_url?: string;
-  };
-}) {
+export function SourceCard({ source }: { source: Source }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
