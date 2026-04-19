@@ -12,9 +12,11 @@ load_dotenv()
 
 app = FastAPI()
 
+origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://so-rag.vercel.app"],
+    allow_origins=origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -95,7 +97,7 @@ def rerank(question: str, chunks: list[dict], top_k: int = 6) -> list[dict]:
     for score, chunk in ranked:
         source = chunk["source"]
         count = seen_sources.get(source, 0)
-        if count < 2:  # max 2 chunks per source
+        if count < 3:  # max 3 chunks per source
             seen_sources[source] = count + 1
             diverse.append(chunk)
         else:
@@ -196,7 +198,7 @@ async def ask(body: AskRequest):
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.1,
-            max_tokens=800,
+            max_tokens=1500,
         )
 
         answer = completion.choices[0].message.content.strip()
@@ -215,8 +217,6 @@ async def ask(body: AskRequest):
                     section_title=c.get("section_title"),
                     pdf_url=c.get("pdf_url"),
                 ))
-
-        is_procedure = any(c.get("chunk_type") == "procedure" for c in reranked)
 
         return AskResponse(
             answer=answer,
@@ -260,20 +260,10 @@ async def feedback(body: FeedbackRequest):
 @app.get("/suggestions")
 async def suggestions():
     try:
-        result = supabase.table("queries") \
-            .select("question") \
-            .execute()
-
-        if not result.data:
-            return {"suggestions": []}
-
-        # Count frequency
-        from collections import Counter
-        counts = Counter(row["question"].strip().lower() for row in result.data)
-
-        # Return top 6 most common, title-cased
-        top = [q.capitalize() for q, _ in counts.most_common(6)]
+        result = supabase.rpc("top_suggestions", {"lim": 6}).execute()
+        top = [q["question"].capitalize() for q in result.data]
         return {"suggestions": top}
+
     except Exception as e:
         print(f"Suggestions error: {e}")
         return {"suggestions": []}
