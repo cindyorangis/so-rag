@@ -33,7 +33,8 @@ web/yarn-error.log*
 web/.pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-web/.env*
+web/.env
+web/.env.local
 
 # vercel
 web/.vercel
@@ -42,8 +43,8 @@ web/.vercel
 web/*.tsbuildinfo
 web/next-env.d.ts
 
-api/.env*
+api/.env
 api/__pycache__/
 
 ingest/pdfs/*
-ingest/.env*
+ingest/.env
