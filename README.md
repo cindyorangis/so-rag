@@ -21,9 +21,10 @@ Supports two document types:
 | PDF Parsing | `pdfplumber` (policy docs), `pymupdf` (procedure manuals) |
 | Image Description | Ollama — `moondream` (local, free) |
 | Embeddings | `sentence-transformers` — `BAAI/bge-base-en-v1.5` (local, free) |
+| Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` (local, free) |
 | Vector Database | Supabase pgvector |
 | PDF Storage | Supabase Storage |
-| LLM | Groq API — Llama 3.3 70B (primary), with automatic fallback to Llama 3.1 8B and Gemma 2 9B |
+| LLM | Groq API — Llama 3.3 70B (primary), with automatic fallback to Llama 4 Scout 17Bx16E and Llama 3.1 8B |
 | Backend | FastAPI (Python) |
 | Frontend | Next.js + Tailwind CSS |
 
@@ -51,7 +52,11 @@ serviceontario-rag/
 │   ├── requirements.txt
 │   └── .env
 ├── api/                         # FastAPI backend — deploy to Railway
-│   ├── main.py
+│   ├── main.py                  # App setup and routes
+│   ├── config.py                # Env, clients, model registry
+│   ├── models.py                # Pydantic schemas
+│   ├── search.py                # Hybrid search and reranking
+│   ├── prompts.py               # System prompts
 │   ├── requirements.txt
 │   └── .env
 ├── web/                         # Next.js frontend — deploy to Vercel
@@ -309,6 +314,49 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
+## API Module Structure
+
+The `api/` directory is split into focused modules — avoid editing `main.py` for anything other than adding new routes.
+
+| File | Responsibility |
+|---|---|
+| `main.py` | FastAPI app, middleware, route definitions |
+| `config.py` | Environment loading, Supabase/Groq/embedder clients, `GROQ_MODELS` registry |
+| `models.py` | Pydantic request/response schemas |
+| `search.py` | Hybrid search, reranking, context building, question sanitization |
+| `prompts.py` | System prompts for policy and procedure modes |
+
+### Adding or changing models
+
+All model configuration lives in `config.py`. To swap a model or add a new fallback, edit the `GROQ_MODELS` list — order determines fallback priority (first = primary):
+
+```python
+GROQ_MODELS = [
+    {
+        "id": "llama-3.3-70b-versatile",
+        "label": "Llama 3.3 70B",
+        "description": "Best for complex policy questions",
+        "tier": "primary",
+    },
+    {
+        "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "label": "Llama 4 Scout 17Bx16E",
+        "description": "Good for complex questions; fallback if 70B is rate limited",
+        "tier": "secondary",
+    },
+    {
+        "id": "llama-3.1-8b-instant",
+        "label": "Llama 3.1 8B",
+        "description": "Fastest; good for simple lookups",
+        "tier": "fast",
+    },
+]
+```
+
+No other files need to change when the model list is updated.
+
+---
+
 ## How Procedure Mode Works
 
 When a query matches a procedure manual chunk, the API automatically switches to procedure mode:
@@ -330,8 +378,8 @@ Users can select which LLM to use from the model picker above the input bar. The
 | Model | Best for |
 |---|---|
 | Llama 3.3 70B | Complex policy questions, multi-source synthesis |
-| Llama 3.1 8B | Simple lookups, faster responses |
-| Gemma 2 9B | Fallback when other models are rate limited |
+| Llama 4 Scout 17Bx16E | Complex questions; fallback when 70B is rate limited |
+| Llama 3.1 8B | Simple lookups, fastest responses |
 
 The `/models` endpoint probes each model's rate limit status and returns availability and reset time. The model picker polls this every 30 seconds and shows a countdown when a model is unavailable.
 
@@ -538,8 +586,8 @@ For procedure questions (like how to use PRIO or complete a specific workflow), 
 | Model | Use when |
 |---|---|
 | **Llama 3.3 70B** | Your question involves multiple policies, fees, or cross-manual topics |
+| **Llama 4 Scout 17Bx16E** | You need a capable fallback when 70B is rate limited |
 | **Llama 3.1 8B** | You need a quick answer to a simple, direct question |
-| **Gemma 2 9B** | The other models show as unavailable |
 
 If a model is rate limited, it will show a countdown until it's available again. The API will also automatically fall back to the next available model if needed.
 
