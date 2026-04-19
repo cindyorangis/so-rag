@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "@/components/ChatMessage";
+import { ModelPicker } from "@/components/ModelPicker";
 import type { Message } from "@/types/manuals";
 import "./manuals.css";
 
@@ -19,6 +20,7 @@ function normalizeBullets(text: string): string {
 }
 
 export default function ManualsPage() {
+  const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,7 +61,7 @@ export default function ManualsPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, model_id: selectedModel }),
       });
 
       if (!res.ok) {
@@ -244,6 +246,12 @@ export default function ManualsPage() {
       {/* Input */}
       <div className="px-5 py-5 bg-[#0f1117] border-t border-white/[0.07]">
         <div className="flex gap-2.5 max-w-[800px] mx-auto">
+          {/* Model picker */}
+          <ModelPicker
+            selectedModel={selectedModel}
+            onChange={setSelectedModel}
+          />
+
           <input
             ref={inputRef}
             value={input}
