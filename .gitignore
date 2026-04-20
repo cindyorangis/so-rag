@@ -48,3 +48,5 @@ api/__pycache__/
 
 ingest/pdfs/*
 ingest/.env
+
+eval/.env

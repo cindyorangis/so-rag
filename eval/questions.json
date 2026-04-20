@@ -1,0 +1,43 @@
+[
+  {
+    "question": "What documents are required to register a used vehicle in Ontario?",
+    "ground_truth": "You need a signed Bill of Sale, the vehicle permit (ownership), a Safety Standards Certificate, and proof of insurance."
+  },
+  {
+    "question": "What is the fee for a personalized licence plate?",
+    "ground_truth": "The fee for a personalized licence plate is $310.00, plus an annual renewal fee."
+  },
+  {
+    "question": "How do I log into PRIO?",
+    "ground_truth": "Navigate to the PRIO login page, enter your GO Secure username and password, and click Sign In."
+  },
+  { "question": "What documents do I need to bring to renew my driver’s licence if I am over 80?",
+    "ground_truth": ""
+  },
+  {
+    "question": "I lost my licence plate. Can I get a replacement online?",
+    "ground_truth": ""
+  },
+  {
+    "question": "How do I order a Used Vehicle Information Package (UVIP)?",
+    "ground_truth": ""
+  },
+  { "question": "My health card was stolen. How do I get a replacement?",
+    "ground_truth": ""
+  },
+  { "question": "Can I change the address on my health card online?",
+    "ground_truth": ""
+  },
+  {
+    "question": "I need to register a new business in Ontario. What are the first steps?",
+    "ground_truth": ""
+  },
+  {
+    "question": "How do I file a criminal complaint against my neighbor?",
+    "ground_truth": ""
+  },
+  {
+    "question": "Can you help me write a poem about the Ontario legislature?",
+    "ground_truth": ""
+  }
+]
