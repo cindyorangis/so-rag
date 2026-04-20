@@ -67,7 +67,6 @@ export default function ManualsPage() {
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
         if (res.status === 429) {
-          const detail = await res.json().catch(() => ({}));
           throw new Error(
             detail?.detail ?? "Rate limit reached — please try again shortly.",
           );
@@ -156,17 +155,24 @@ export default function ManualsPage() {
           </div>
         </div>
 
-        {!isEmpty && (
-          <button
-            onClick={() => {
-              setMessages([]);
-              setInput("");
-            }}
-            className="bg-white/5 border border-white/10 rounded-lg text-white/50 text-xs px-3 py-1.5 cursor-pointer hover:text-white/70 transition-colors"
-          >
-            Clear
-          </button>
-        )}
+        {/* Right side: model picker + clear button */}
+        <div className="flex items-center gap-2">
+          <ModelPicker
+            selectedModel={selectedModel}
+            onChange={setSelectedModel}
+          />
+          {!isEmpty && (
+            <button
+              onClick={() => {
+                setMessages([]);
+                setInput("");
+              }}
+              className="bg-white/5 border border-white/10 rounded-lg text-white/50 text-xs px-3 py-1.5 cursor-pointer hover:text-white/70 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Messages */}
@@ -248,12 +254,6 @@ export default function ManualsPage() {
       {/* Input */}
       <div className="px-5 py-5 bg-[#0f1117] border-t border-white/[0.07]">
         <div className="flex gap-2.5 max-w-[800px] mx-auto">
-          {/* Model picker */}
-          <ModelPicker
-            selectedModel={selectedModel}
-            onChange={setSelectedModel}
-          />
-
           <input
             ref={inputRef}
             value={input}

@@ -96,7 +96,7 @@ export function ModelPicker({ selectedModel, onChange }: Props) {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 z-50 w-64 rounded-xl border border-white/10 bg-[#1a1a1a] shadow-2xl overflow-hidden">
+        <div className="absolute top-full mt-2 right-0 z-50 w-64 rounded-xl border border-white/10 bg-[#1a1a1a] shadow-2xl overflow-hidden">
           {models.map((m, i) => {
             const isSelected = m.id === selectedModel;
             return (
